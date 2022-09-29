@@ -1,7 +1,7 @@
 package cn.hutool.core.exceptions;
 
-import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FastByteArrayOutputStream;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.ReflectUtil;
 import cn.hutool.core.util.StrUtil;
@@ -150,7 +150,25 @@ public class ExceptionUtil {
 	 * @since 4.1.4
 	 */
 	public static StackTraceElement getStackElement(int i) {
-		return getStackElements()[i];
+		return Thread.currentThread().getStackTrace()[i];
+	}
+
+	/**
+	 * 获取指定层的堆栈信息
+	 *
+	 * @param fqcn 指定类名为基础
+	 * @param i 指定类名的类堆栈相对层数
+	 * @return 指定层的堆栈信息
+	 * @since 5.6.6
+	 */
+	public static StackTraceElement getStackElement(String fqcn, int i) {
+		final StackTraceElement[] stackTraceArray = Thread.currentThread().getStackTrace();
+		final int index = ArrayUtil.matchIndex((ele) -> StrUtil.equals(fqcn, ele.getClassName()), stackTraceArray);
+		if(index > 0){
+			return stackTraceArray[index + i];
+		}
+
+		return null;
 	}
 
 	/**
@@ -160,8 +178,8 @@ public class ExceptionUtil {
 	 * @since 4.1.4
 	 */
 	public static StackTraceElement getRootStackElement() {
-		final StackTraceElement[] stackElements = getStackElements();
-		return stackElements[stackElements.length - 1];
+		final StackTraceElement[] stackElements = Thread.currentThread().getStackTrace();
+		return Thread.currentThread().getStackTrace()[stackElements.length - 1];
 	}
 
 	/**
@@ -215,24 +233,25 @@ public class ExceptionUtil {
 	 * 堆栈转为完整字符串
 	 *
 	 * @param throwable           异常对象
-	 * @param limit               限制最大长度
+	 * @param limit               限制最大长度，&gt;0表示不限制长度
 	 * @param replaceCharToStrMap 替换字符为指定字符串
 	 * @return 堆栈转为的字符串
 	 */
 	public static String stacktraceToString(Throwable throwable, int limit, Map<Character, String> replaceCharToStrMap) {
 		final FastByteArrayOutputStream baos = new FastByteArrayOutputStream();
 		throwable.printStackTrace(new PrintStream(baos));
-		String exceptionStr = baos.toString();
-		int length = exceptionStr.length();
-		if (limit > 0 && limit < length) {
-			length = limit;
+
+		final String exceptionStr = baos.toString();
+		final int length = exceptionStr.length();
+		if (limit < 0 || limit > length) {
+			limit = length;
 		}
 
-		if (CollUtil.isNotEmpty(replaceCharToStrMap)) {
+		if (MapUtil.isNotEmpty(replaceCharToStrMap)) {
 			final StringBuilder sb = StrUtil.builder();
 			char c;
 			String value;
-			for (int i = 0; i < length; i++) {
+			for (int i = 0; i < limit; i++) {
 				c = exceptionStr.charAt(i);
 				value = replaceCharToStrMap.get(c);
 				if (null != value) {
@@ -243,6 +262,9 @@ public class ExceptionUtil {
 			}
 			return sb.toString();
 		} else {
+			if(limit == length){
+				return exceptionStr;
+			}
 			return StrUtil.subPre(exceptionStr, limit);
 		}
 	}

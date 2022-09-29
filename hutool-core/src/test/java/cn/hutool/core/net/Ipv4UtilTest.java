@@ -1,8 +1,8 @@
 package cn.hutool.core.net;
 
-import cn.hutool.core.lang.Console;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.function.ThrowingRunnable;
 
 import java.util.List;
 
@@ -12,6 +12,12 @@ public class Ipv4UtilTest {
 	public void getMaskBitByMaskTest(){
 		final int maskBitByMask = Ipv4Util.getMaskBitByMask("255.255.255.0");
 		Assert.assertEquals(24, maskBitByMask);
+	}
+
+	@Test
+	public void getMaskBitByIllegalMaskTest() {
+		ThrowingRunnable getMaskBitByMaskRunnable = () -> Ipv4Util.getMaskBitByMask("255.255.0.255");
+		Assert.assertThrows("非法掩码测试", IllegalArgumentException.class, getMaskBitByMaskRunnable);
 	}
 
 	@Test
@@ -33,7 +39,7 @@ public class Ipv4UtilTest {
 		String ip = "192.168.1.1";
 		final int maskBitByMask = Ipv4Util.getMaskBitByMask("255.255.255.0");
 		final String endIpStr = Ipv4Util.getEndIpStr(ip, maskBitByMask);
-		Console.log(endIpStr);
+		Assert.assertEquals("192.168.1.255", endIpStr);
 	}
 
 	@Test
@@ -41,5 +47,56 @@ public class Ipv4UtilTest {
 		int maskBit = Ipv4Util.getMaskBitByMask("255.255.255.0");
 		final List<String> list = Ipv4Util.list("192.168.100.2", maskBit, false);
 		Assert.assertEquals(254, list.size());
+	}
+
+	@Test
+	public void isMaskValidTest() {
+		boolean maskValid = Ipv4Util.isMaskValid("255.255.255.0");
+		Assert.assertTrue("掩码合法检验", maskValid);
+	}
+
+	@Test
+	public void isMaskInvalidTest() {
+		Assert.assertFalse("掩码非法检验 - 255.255.0.255", Ipv4Util.isMaskValid("255.255.0.255"));
+		Assert.assertFalse("掩码非法检验 - null值", Ipv4Util.isMaskValid(null));
+		Assert.assertFalse("掩码非法检验 - 空字符串", Ipv4Util.isMaskValid(""));
+		Assert.assertFalse("掩码非法检验 - 空白字符串", Ipv4Util.isMaskValid(" "));
+	}
+
+	@Test
+	public void isMaskBitValidTest() {
+		boolean maskBitValid = Ipv4Util.isMaskBitValid(32);
+		Assert.assertTrue("掩码位合法检验", maskBitValid);
+	}
+
+	@Test
+	public void isMaskBitInvalidTest() {
+		boolean maskBitValid = Ipv4Util.isMaskBitValid(33);
+		Assert.assertFalse("掩码位非法检验", maskBitValid);
+	}
+
+	@Test
+	public void ipv4ToLongTest(){
+		long l = Ipv4Util.ipv4ToLong("127.0.0.1");
+		Assert.assertEquals(2130706433L, l);
+		l = Ipv4Util.ipv4ToLong("114.114.114.114");
+		Assert.assertEquals(1920103026L, l);
+		l = Ipv4Util.ipv4ToLong("0.0.0.0");
+		Assert.assertEquals(0L, l);
+		l = Ipv4Util.ipv4ToLong("255.255.255.255");
+		Assert.assertEquals(4294967295L, l);
+	}
+
+	@Test
+	public void ipv4ToLongWithDefaultTest() {
+		String strIP = "不正确的 IP 地址";
+		long defaultValue = 0L;
+		long ipOfLong = Ipv4Util.ipv4ToLong(strIP, defaultValue);
+		Assert.assertEquals(ipOfLong, defaultValue);
+
+		String strIP2 = "255.255.255.255";
+		long defaultValue2 = 0L;
+		long ipOfLong2 = Ipv4Util.ipv4ToLong(strIP2, defaultValue2);
+		Assert.assertEquals(ipOfLong2, 4294967295L);
 	}
 }

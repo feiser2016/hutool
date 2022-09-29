@@ -1,12 +1,10 @@
 package cn.hutool.db;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.map.MapUtil;
 import cn.hutool.db.dialect.Dialect;
 import cn.hutool.db.dialect.DialectFactory;
 import cn.hutool.db.handler.EntityListHandler;
 import cn.hutool.db.handler.HandleHelper;
-import cn.hutool.db.handler.NumberHandler;
 import cn.hutool.db.handler.PageResultHandler;
 import cn.hutool.db.handler.RsHandler;
 import cn.hutool.db.sql.Condition.LikeType;
@@ -23,7 +21,8 @@ import java.util.List;
 /**
  * SQL执行类<br>
  * 此执行类只接受方言参数，不需要数据源，只有在执行方法时需要数据库连接对象<br>
- * 此对象存在的意义在于，可以由使用者自定义数据库连接对象，并执行多个方法，方便事务的统一控制或减少连接对象的创建关闭
+ * 此对象存在的意义在于，可以由使用者自定义数据库连接对象，并执行多个方法，方便事务的统一控制或减少连接对象的创建关闭<br>
+ * 相比{@link DialectRunner}，此类中提供了更多重载方法
  *
  * @author Luxiaolei
  */
@@ -74,7 +73,7 @@ public class SqlConnRunner extends DialectRunner {
 	/**
 	 * 构造
 	 *
-	 * @param driverClassName 驱动类名，，用于识别方言
+	 * @param driverClassName 驱动类名，用于识别方言
 	 */
 	public SqlConnRunner(String driverClassName) {
 		super(driverClassName);
@@ -82,25 +81,6 @@ public class SqlConnRunner extends DialectRunner {
 	//------------------------------------------------------- Constructor end
 
 	//---------------------------------------------------------------------------- CRUD start
-
-	/**
-	 * 插入或更新数据<br>
-	 * 此方法不会关闭Connection
-	 *
-	 * @param conn   数据库连接
-	 * @param record 记录
-	 * @param keys   需要检查唯一性的字段
-	 * @return 插入行数
-	 * @throws SQLException SQL执行异常
-	 */
-	public int insertOrUpdate(Connection conn, Entity record, String... keys) throws SQLException {
-		final Entity where = record.filter(keys);
-		if (MapUtil.isNotEmpty(where) && count(conn, where) > 0) {
-			return update(conn, record, where);
-		} else {
-			return insert(conn, record);
-		}
-	}
 
 	/**
 	 * 批量插入数据<br>
@@ -279,16 +259,17 @@ public class SqlConnRunner extends DialectRunner {
 	}
 
 	/**
-	 * 获取查询结果总数，生成类似于 SELECT count(1) from (sql)
+	 * 获取查询结果总数，生成类似于 SELECT count(1) from (sql) as _count
 	 *
 	 * @param conn      数据库连接对象
 	 * @param selectSql 查询语句
+	 * @param params    查询参数
 	 * @return 结果数
 	 * @throws SQLException SQL异常
+	 * @since 5.6.6
 	 */
-	public long count(Connection conn, CharSequence selectSql) throws SQLException {
-		SqlBuilder sqlBuilder = SqlBuilder.of(selectSql).insertPreFragment("SELECT count(1) from(").append(")");
-		return page(conn, sqlBuilder, null, new NumberHandler()).intValue();
+	public long count(Connection conn, CharSequence selectSql, Object... params) throws SQLException {
+		return count(conn, SqlBuilder.of(selectSql).addParams(params));
 	}
 
 	/**
@@ -322,7 +303,7 @@ public class SqlConnRunner extends DialectRunner {
 	 */
 	public PageResult<Entity> page(Connection conn, SqlBuilder sqlBuilder, Page page) throws SQLException {
 		final PageResultHandler pageResultHandler = new PageResultHandler(
-				new PageResult<>(page.getPageNumber(), page.getPageSize(), (int) count(conn, sqlBuilder.build())),
+				new PageResult<>(page.getPageNumber(), page.getPageSize(), (int) count(conn, sqlBuilder)),
 				this.caseInsensitive);
 		return page(conn, sqlBuilder, page, pageResultHandler);
 	}

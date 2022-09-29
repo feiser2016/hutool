@@ -13,8 +13,6 @@ import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.net.HttpURLConnection;
 import java.net.ProtocolException;
 import java.net.Proxy;
@@ -122,7 +120,7 @@ public class HttpConnection {
 
 			// 增加PATCH方法支持
 			if (Method.PATCH.equals(method)) {
-				allowPatch();
+				HttpGlobalConfig.allowPatch();
 			}
 		}
 
@@ -130,9 +128,13 @@ public class HttpConnection {
 		try {
 			this.conn.setRequestMethod(method.toString());
 		} catch (ProtocolException e) {
-			throw new HttpException(e);
+			if(Method.PATCH.equals(method)){
+				// 如果全局设置失效，此处针对单独链接重新设置
+				reflectSetMethod(method);
+			}else{
+				throw new HttpException(e);
+			}
 		}
-
 		return this;
 	}
 
@@ -455,7 +457,7 @@ public class HttpConnection {
 		// 修改为POST，而且无法调用setRequestMethod方法修改，因此此处使用反射强制修改字段属性值
 		// https://stackoverflow.com/questions/978061/http-get-with-request-body/983458
 		if(method == Method.GET && method != getMethod()){
-			ReflectUtil.setFieldValue(this.conn, "method", Method.GET.name());
+			reflectSetMethod(method);
 		}
 
 		return out;
@@ -548,20 +550,16 @@ public class HttpConnection {
 	}
 
 	/**
-	 * 增加支持的METHOD方法
-	 * see: https://stackoverflow.com/questions/25163131/httpurlconnection-invalid-http-method-patch
-	 *
-	 * @since 5.1.6
+	 * 通过反射设置方法名，首先设置HttpURLConnection本身的方法名，再检查是否为代理类，如果是，设置带路对象的方法名。
+	 * @param method 方法名
 	 */
-	private static void allowPatch() {
-		final Field methodsField = ReflectUtil.getField(HttpURLConnection.class, "methods");
-		if (null != methodsField) {
-			// 去除final修饰
-			ReflectUtil.setFieldValue(methodsField, "modifiers", methodsField.getModifiers() & ~Modifier.FINAL);
-			final String[] methods = {
-					"GET", "POST", "HEAD", "OPTIONS", "PUT", "DELETE", "TRACE", "PATCH"
-			};
-			ReflectUtil.setFieldValue(null, methodsField, methods);
+	private void reflectSetMethod(Method method){
+		ReflectUtil.setFieldValue(this.conn, "method", method.name());
+
+		// HttpsURLConnectionImpl实现中，使用了代理类，需要修改被代理类的method方法
+		final Object delegate = ReflectUtil.getFieldValue(this.conn, "delegate");
+		if(null != delegate){
+			ReflectUtil.setFieldValue(delegate, "method", method.name());
 		}
 	}
 	// --------------------------------------------------------------- Private Method end

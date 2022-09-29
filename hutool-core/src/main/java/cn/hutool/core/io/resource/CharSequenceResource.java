@@ -3,6 +3,7 @@ package cn.hutool.core.io.resource;
 import cn.hutool.core.io.IORuntimeException;
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.util.CharsetUtil;
+import cn.hutool.core.util.StrUtil;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -14,7 +15,7 @@ import java.nio.charset.Charset;
 
 /**
  * {@link CharSequence}资源，字符串做为资源
- * 
+ *
  * @author looly
  * @since 5.5.2
  */
@@ -59,7 +60,7 @@ public class CharSequenceResource implements Resource, Serializable {
 
 	@Override
 	public String getName() {
-		return this.name.toString();
+		return StrUtil.str(this.name);
 	}
 
 	@Override

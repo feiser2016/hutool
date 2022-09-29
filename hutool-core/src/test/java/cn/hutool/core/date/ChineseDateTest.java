@@ -4,11 +4,14 @@ import cn.hutool.core.util.StrUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Date;
+
 public class ChineseDateTest {
 
 	@Test
 	public void chineseDateTest() {
 		ChineseDate date = new ChineseDate(DateUtil.parseDate("2020-01-25"));
+		Assert.assertEquals("2020-01-25 00:00:00", date.getGregorianDate().toString());
 		Assert.assertEquals(2020, date.getChineseYear());
 
 		Assert.assertEquals(1, date.getMonth());
@@ -50,10 +53,16 @@ public class ChineseDateTest {
 	@Test
 	public void getChineseMonthTest(){
 		ChineseDate chineseDate = new ChineseDate(2020,6,15);
+		Assert.assertEquals("2020-08-04 00:00:00", chineseDate.getGregorianDate().toString());
 		Assert.assertEquals("六月", chineseDate.getChineseMonth());
 
 		chineseDate = new ChineseDate(2020,4,15);
+		Assert.assertEquals("2020-06-06 00:00:00", chineseDate.getGregorianDate().toString());
 		Assert.assertEquals("闰四月", chineseDate.getChineseMonth());
+
+		chineseDate = new ChineseDate(2020,5,15);
+		Assert.assertEquals("2020-07-05 00:00:00", chineseDate.getGregorianDate().toString());
+		Assert.assertEquals("五月", chineseDate.getChineseMonth());
 	}
 
 	@Test
@@ -75,7 +84,80 @@ public class ChineseDateTest {
 
 	@Test
 	public void dateTest2(){
-		ChineseDate date = new ChineseDate(DateUtil.parse("2020-10-19 11:12:23"));
+		//noinspection ConstantConditions
+		ChineseDate date = new ChineseDate(DateUtil.parse("2020-10-19"));
 		Assert.assertEquals("庚子鼠年 九月初三", date.toString());
+	}
+
+	@Test
+	public void dateTest2_2(){
+		//noinspection ConstantConditions
+		ChineseDate date = new ChineseDate(DateUtil.parse("2020-07-20"));
+		Assert.assertEquals("庚子鼠年 五月三十", date.toString());
+	}
+
+	@Test
+	public void dateTest3(){
+		// 初一，offset为0测试
+		//noinspection ConstantConditions
+		ChineseDate date = new ChineseDate(DateUtil.parse("2099-03-22"));
+		Assert.assertEquals("己未羊年 闰二月初一", date.toString());
+	}
+
+	@Test
+	public void leapMonthTest(){
+		//noinspection ConstantConditions
+		final ChineseDate c1 = new ChineseDate(DateUtil.parse("2028-05-28"));
+		//noinspection ConstantConditions
+		final ChineseDate c2 = new ChineseDate(DateUtil.parse("2028-06-27"));
+
+		Assert.assertEquals("戊申猴年 五月初五", c1.toString());
+		Assert.assertEquals("戊申猴年 闰五月初五", c2.toString());
+	}
+
+	@Test
+	public void getChineseMonthTest2(){
+		//https://github.com/dromara/hutool/issues/2112
+		ChineseDate springFestival = new ChineseDate(DateUtil.parseDate("2022-02-01"));
+		final String chineseMonth = springFestival.getChineseMonth();
+		Assert.assertEquals("一月", chineseMonth);
+	}
+
+	@Test
+	public void day19700101Test(){
+		// https://gitee.com/dromara/hutool/issues/I4UTPK
+		Date date = DateUtil.parse("1970-01-01");
+		//noinspection ConstantConditions
+		ChineseDate chineseDate = new ChineseDate(date);
+		Assert.assertEquals("己酉鸡年 冬月廿四", chineseDate.toString());
+
+		date = DateUtil.parse("1970-01-02");
+		//noinspection ConstantConditions
+		chineseDate = new ChineseDate(date);
+		Assert.assertEquals("己酉鸡年 冬月廿五", chineseDate.toString());
+
+		date = DateUtil.parse("1970-01-03");
+		//noinspection ConstantConditions
+		chineseDate = new ChineseDate(date);
+		Assert.assertEquals("己酉鸡年 冬月廿六", chineseDate.toString());
+	}
+
+	@Test
+	public void day19000101Test(){
+		// 1900-01-31之前不支持
+		Date date = DateUtil.parse("1900-01-31");
+		//noinspection ConstantConditions
+		ChineseDate chineseDate = new ChineseDate(date);
+		Assert.assertEquals("庚子鼠年 正月初一", chineseDate.toString());
+	}
+
+	@Test
+	public void getGregorianDateTest(){
+		// https://gitee.com/dromara/hutool/issues/I4ZSGJ
+		ChineseDate chineseDate = new ChineseDate(1998, 5, 1);
+		Assert.assertEquals("1998-06-24 00:00:00", chineseDate.getGregorianDate().toString());
+
+		chineseDate = new ChineseDate(1998, 5, 1, false);
+		Assert.assertEquals("1998-05-26 00:00:00", chineseDate.getGregorianDate().toString());
 	}
 }

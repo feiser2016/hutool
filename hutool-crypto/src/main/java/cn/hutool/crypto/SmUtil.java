@@ -54,7 +54,7 @@ public class SmUtil {
 	public static final ECDomainParameters SM2_DOMAIN_PARAMS = BCUtil.toDomainParams(GMNamedCurves.getByName(SM2_CURVE_NAME));
 	/**
 	 * SM2国密算法公钥参数的Oid标识
- 	 */
+	 */
 	public static final ASN1ObjectIdentifier ID_SM2_PUBLIC_KEY_PARAM = new ASN1ObjectIdentifier("1.2.156.10197.1.301");
 
 	/**
@@ -134,6 +134,17 @@ public class SmUtil {
 	}
 
 	/**
+	 * SM3加密，可以传入盐
+	 *
+	 * @param salt 加密盐
+	 * @return {@link SM3}
+	 * @since 5.7.16
+	 */
+	public static SM3 sm3WithSalt(byte[] salt) {
+		return new SM3(salt);
+	}
+
+	/**
 	 * SM3加密，生成16进制SM3字符串<br>
 	 *
 	 * @param data 数据
@@ -188,9 +199,9 @@ public class SmUtil {
 	 * </pre>
 	 *
 	 * @param key 密钥
-	 * @return {@link SymmetricCrypto}
+	 * @return {@link SM4}
 	 */
-	public static SymmetricCrypto sm4(byte[] key) {
+	public static SM4 sm4(byte[] key) {
 		return new SM4(key);
 	}
 

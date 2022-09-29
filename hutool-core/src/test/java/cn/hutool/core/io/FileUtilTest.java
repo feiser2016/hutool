@@ -1,5 +1,6 @@
 package cn.hutool.core.io;
 
+import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.io.file.LineSeparator;
 import cn.hutool.core.lang.Console;
 import cn.hutool.core.util.CharsetUtil;
@@ -149,17 +150,22 @@ public class FileUtilTest {
 		Assert.assertEquals("/baz", FileUtil.normalize("/foo/../bar/../baz"));
 		Assert.assertEquals("/", FileUtil.normalize("/../"));
 		Assert.assertEquals("foo", FileUtil.normalize("foo/bar/.."));
-		Assert.assertEquals("bar", FileUtil.normalize("foo/../../bar"));
+		Assert.assertEquals("../bar", FileUtil.normalize("foo/../../bar"));
 		Assert.assertEquals("bar", FileUtil.normalize("foo/../bar"));
 		Assert.assertEquals("/server/bar", FileUtil.normalize("//server/foo/../bar"));
 		Assert.assertEquals("/bar", FileUtil.normalize("//server/../bar"));
 		Assert.assertEquals("C:/bar", FileUtil.normalize("C:\\foo\\..\\bar"));
+		//
 		Assert.assertEquals("C:/bar", FileUtil.normalize("C:\\..\\bar"));
-		Assert.assertEquals("bar", FileUtil.normalize("../../bar"));
+		Assert.assertEquals("../../bar", FileUtil.normalize("../../bar"));
 		Assert.assertEquals("C:/bar", FileUtil.normalize("/C:/bar"));
 		Assert.assertEquals("C:", FileUtil.normalize("C:"));
-
 		Assert.assertEquals("\\/192.168.1.1/Share/", FileUtil.normalize("\\\\192.168.1.1\\Share\\"));
+	}
+
+	@Test
+	public void normalizeBlankTest() {
+		Assert.assertEquals("C:/aaa ", FileUtil.normalize("C:\\aaa "));
 	}
 
 	@Test
@@ -169,8 +175,21 @@ public class FileUtilTest {
 	}
 
 	@Test
+	public void normalizeHomePathTest2() {
+		String home = FileUtil.getUserHomePath().replace('\\', '/');
+		// 多个~应该只替换开头的
+		Assert.assertEquals(home + "/~bar/", FileUtil.normalize("~/foo/../~bar/"));
+	}
+
+	@Test
 	public void normalizeClassPathTest() {
 		Assert.assertEquals("", FileUtil.normalize("classpath:"));
+	}
+
+	@Test
+	public void normalizeClassPathTest2() {
+		Assert.assertEquals("../a/b.csv", FileUtil.normalize("../a/b.csv"));
+		Assert.assertEquals("../../../a/b.csv", FileUtil.normalize("../../../a/b.csv"));
 	}
 
 	@Test
@@ -282,6 +301,12 @@ public class FileUtilTest {
 
 	@Test
 	@Ignore
+	public void loopFilesTest2() {
+		FileUtil.loopFiles("").forEach(Console::log);
+	}
+
+	@Test
+	@Ignore
 	public void loopFilesWithDepthTest() {
 		List<File> files = FileUtil.loopFiles(FileUtil.file("d:/m2_repo"), 2, null);
 		for (File file : files) {
@@ -352,17 +377,37 @@ public class FileUtilTest {
 
 	@Test
 	public void extNameTest() {
-		String path = "d:\\aaa\\bbb\\cc\\ddd\\";
+		String path =  FileUtil.isWindows() ? "d:\\aaa\\bbb\\cc\\ddd\\" : "~/Desktop/hutool/ddd/";
 		String mainName = FileUtil.extName(path);
 		Assert.assertEquals("", mainName);
 
-		path = "d:\\aaa\\bbb\\cc\\ddd";
+		path =  FileUtil.isWindows() ? "d:\\aaa\\bbb\\cc\\ddd" : "~/Desktop/hutool/ddd";
 		mainName = FileUtil.extName(path);
 		Assert.assertEquals("", mainName);
 
-		path = "d:\\aaa\\bbb\\cc\\ddd.jpg";
+		path = FileUtil.isWindows() ? "d:\\aaa\\bbb\\cc\\ddd.jpg" : "~/Desktop/hutool/ddd.jpg";
 		mainName = FileUtil.extName(path);
 		Assert.assertEquals("jpg", mainName);
+
+		path = FileUtil.isWindows() ? "d:\\aaa\\bbb\\cc\\fff.xlsx" : "~/Desktop/hutool/fff.xlsx";
+		mainName = FileUtil.extName(path);
+		Assert.assertEquals("xlsx", mainName);
+
+		path = FileUtil.isWindows() ? "d:\\aaa\\bbb\\cc\\fff.tar.gz" : "~/Desktop/hutool/fff.tar.gz";
+		mainName = FileUtil.extName(path);
+		Assert.assertEquals("tar.gz", mainName);
+
+		path = FileUtil.isWindows() ? "d:\\aaa\\bbb\\cc\\fff.tar.Z" : "~/Desktop/hutool/fff.tar.Z";
+		mainName = FileUtil.extName(path);
+		Assert.assertEquals("tar.Z", mainName);
+
+		path = FileUtil.isWindows() ? "d:\\aaa\\bbb\\cc\\fff.tar.bz2" : "~/Desktop/hutool/fff.tar.bz2";
+		mainName = FileUtil.extName(path);
+		Assert.assertEquals("tar.bz2", mainName);
+
+		path = FileUtil.isWindows() ? "d:\\aaa\\bbb\\cc\\fff.tar.xz" : "~/Desktop/hutool/fff.tar.xz";
+		mainName = FileUtil.extName(path);
+		Assert.assertEquals("tar.xz", mainName);
 	}
 
 	@Test
@@ -385,6 +430,26 @@ public class FileUtilTest {
 
 		mimeType = FileUtil.getMimeType("test.js");
 		Assert.assertEquals("application/x-javascript", mimeType);
+
+		// office03
+		mimeType = FileUtil.getMimeType("test.doc");
+		Assert.assertEquals("application/msword", mimeType);
+		mimeType = FileUtil.getMimeType("test.xls");
+		Assert.assertEquals("application/vnd.ms-excel", mimeType);
+		mimeType = FileUtil.getMimeType("test.ppt");
+		Assert.assertEquals("application/vnd.ms-powerpoint", mimeType);
+
+		// office07+
+		mimeType = FileUtil.getMimeType("test.docx");
+		Assert.assertEquals("application/vnd.openxmlformats-officedocument.wordprocessingml.document", mimeType);
+		mimeType = FileUtil.getMimeType("test.xlsx");
+		Assert.assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", mimeType);
+		mimeType = FileUtil.getMimeType("test.pptx");
+		Assert.assertEquals("application/vnd.openxmlformats-officedocument.presentationml.presentation", mimeType);
+
+		// pr#2617@Github
+		mimeType = FileUtil.getMimeType("test.wgt");
+		Assert.assertEquals("application/widget", mimeType);
 	}
 
 	@Test
@@ -399,5 +464,42 @@ public class FileUtilTest {
 		File file = new File("..");
 		File file2 = new File(".");
 		Assert.assertTrue(FileUtil.isSub(file, file2));
+	}
+
+	@Test
+	@Ignore
+	public void appendLinesTest(){
+		List<String> list = ListUtil.toList("a", "b", "c");
+		FileUtil.appendLines(list, FileUtil.file("d:/test/appendLines.txt"), CharsetUtil.CHARSET_UTF_8);
+	}
+
+	@Test
+	@Ignore
+	public void createTempFileTest(){
+		File nullDirTempFile = FileUtil.createTempFile();
+		Assert.assertTrue(nullDirTempFile.exists());
+
+		File suffixDirTempFile = FileUtil.createTempFile(".xlsx",true);
+		Assert.assertEquals("xlsx", FileUtil.getSuffix(suffixDirTempFile));
+
+		File prefixDirTempFile = FileUtil.createTempFile("prefix",".xlsx",true);
+		Assert.assertTrue(FileUtil.getPrefix(prefixDirTempFile).startsWith("prefix"));
+	}
+
+	@Test
+	@Ignore
+	public void getTotalLinesTest() {
+		// 千万行秒级内返回
+		final int totalLines = FileUtil.getTotalLines(FileUtil.file(""));
+		Assert.assertEquals(10000000, totalLines);
+	}
+
+	@Test
+	public void isAbsolutePathTest(){
+		String path = "d:/test\\aaa.txt";
+		Assert.assertTrue(FileUtil.isAbsolutePath(path));
+
+		path = "test\\aaa.txt";
+		Assert.assertFalse(FileUtil.isAbsolutePath(path));
 	}
 }

@@ -4,7 +4,6 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.convert.ConvertException;
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.lang.Console;
 import cn.hutool.core.lang.Dict;
 import cn.hutool.core.lang.TypeReference;
 import cn.hutool.core.util.CharsetUtil;
@@ -13,7 +12,6 @@ import cn.hutool.json.test.bean.JsonNode;
 import cn.hutool.json.test.bean.KeyBean;
 import lombok.Data;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -23,16 +21,24 @@ import java.util.Map;
 
 /**
  * JSONArray单元测试
- * 
+ *
  * @author Looly
  *
  */
 public class JSONArrayTest {
 
-	@Test(expected = JSONException.class)
-	public void createJSONArrayTest(){
-		// 集合类不支持转为JSONObject
-		new JSONArray(new JSONObject(), JSONConfig.create());
+	@Test()
+	public void createJSONArrayFromJSONObjectTest(){
+		// JSONObject实现了Iterable接口，可以转换为JSONArray
+		final JSONObject jsonObject = new JSONObject();
+
+		JSONArray jsonArray = new JSONArray(jsonObject, JSONConfig.create());
+		Assert.assertEquals(new JSONArray(), jsonArray);
+
+		jsonObject.set("key1", "value1");
+		jsonArray = new JSONArray(jsonObject, JSONConfig.create());
+		Assert.assertEquals(1, jsonArray.size());
+		Assert.assertEquals("[{\"key1\":\"value1\"}]", jsonArray.toString());
 	}
 
 	@Test
@@ -84,7 +90,6 @@ public class JSONArrayTest {
 	}
 
 	@Test
-	@Ignore
 	public void parseBeanListTest() {
 		KeyBean b1 = new KeyBean();
 		b1.setAkey("aValue1");
@@ -96,7 +101,8 @@ public class JSONArrayTest {
 		ArrayList<KeyBean> list = CollUtil.newArrayList(b1, b2);
 
 		JSONArray jsonArray = JSONUtil.parseArray(list);
-		Console.log(jsonArray);
+		Assert.assertEquals("aValue1", jsonArray.getJSONObject(0).getStr("akey"));
+		Assert.assertEquals("bValue2", jsonArray.getJSONObject(1).getStr("bkey"));
 	}
 
 	@Test
@@ -112,34 +118,34 @@ public class JSONArrayTest {
 	@Test
 	public void toListTest2() {
 		String jsonArr = "[{\"id\":111,\"name\":\"test1\"},{\"id\":112,\"name\":\"test2\"}]";
-		
+
 		JSONArray array = JSONUtil.parseArray(jsonArr);
 		List<User> userList = JSONUtil.toList(array, User.class);
-		
+
 		Assert.assertFalse(userList.isEmpty());
 		Assert.assertSame(User.class, userList.get(0).getClass());
-		
+
 		Assert.assertEquals(Integer.valueOf(111), userList.get(0).getId());
 		Assert.assertEquals(Integer.valueOf(112), userList.get(1).getId());
-		
+
 		Assert.assertEquals("test1", userList.get(0).getName());
 		Assert.assertEquals("test2", userList.get(1).getName());
 	}
-	
+
 	@Test
 	public void toDictListTest() {
 		String jsonArr = "[{\"id\":111,\"name\":\"test1\"},{\"id\":112,\"name\":\"test2\"}]";
-		
-		JSONArray array = JSONUtil.parseArray(jsonArr);
-		
+
+		JSONArray array = JSONUtil.parseArray(jsonArr, JSONConfig.create().setIgnoreError(false));
+
 		List<Dict> list = JSONUtil.toList(array, Dict.class);
-		
+
 		Assert.assertFalse(list.isEmpty());
 		Assert.assertSame(Dict.class, list.get(0).getClass());
-		
+
 		Assert.assertEquals(Integer.valueOf(111), list.get(0).getInt("id"));
 		Assert.assertEquals(Integer.valueOf(112), list.get(1).getInt("id"));
-		
+
 		Assert.assertEquals("test1", list.get(0).getStr("name"));
 		Assert.assertEquals("test2", list.get(1).getStr("name"));
 	}
@@ -174,7 +180,7 @@ public class JSONArrayTest {
 		String json = "[['aaa',{'akey':'avalue','bkey':'bvalue'}]]";
 		JSONArray ja = JSONUtil.parseArray(json);
 
-		List<List<KeyBean>> list = ja.toBean(new TypeReference<List<List<KeyBean>>>() {});
+		ja.toBean(new TypeReference<List<List<KeyBean>>>() {});
 	}
 
 	@Test
@@ -211,6 +217,23 @@ public class JSONArrayTest {
 		Assert.assertEquals("b", JSONUtil.getByPath(jsonArray, "[1].name"));
 	}
 
+	@Test
+	public void putToIndexTest(){
+		final JSONArray jsonArray = new JSONArray();
+		jsonArray.put(3, "test");
+		// 第三个位置插入值，0~2都是null
+		Assert.assertEquals(4, jsonArray.size());
+	}
+
+	// https://github.com/dromara/hutool/issues/1858
+	@Test
+	public void putTest2(){
+		final JSONArray jsonArray = new JSONArray();
+		jsonArray.put(0, 1);
+		Assert.assertEquals(1, jsonArray.size());
+		Assert.assertEquals(1, jsonArray.get(0));
+	}
+
 	private static Map<String, String> buildMap(String id, String parentId, String name) {
 		Map<String, String> map = new HashMap<>();
 		map.put("id", id);
@@ -223,5 +246,63 @@ public class JSONArrayTest {
 	static class User {
 		private Integer id;
 		private String name;
+	}
+
+	@Test
+	public void filterIncludeTest(){
+		JSONArray json1 = JSONUtil.createArray()
+				.set("value1")
+				.set("value2")
+				.set("value3")
+				.set(true);
+
+		final String s = json1.toJSONString(0, (pair) -> pair.getValue().equals("value2"));
+		Assert.assertEquals("[\"value2\"]", s);
+	}
+
+	@Test
+	public void filterExcludeTest(){
+		JSONArray json1 = JSONUtil.createArray()
+				.set("value1")
+				.set("value2")
+				.set("value3")
+				.set(true);
+
+		final String s = json1.toJSONString(0, (pair) -> false == pair.getValue().equals("value2"));
+		Assert.assertEquals("[\"value1\",\"value3\",true]", s);
+	}
+
+	@Test
+	public void putNullTest(){
+		final JSONArray array = JSONUtil.createArray(JSONConfig.create().setIgnoreNullValue(false));
+		array.set(null);
+
+		Assert.assertEquals("[null]", array.toString());
+	}
+
+	@Test
+	public void parseFilterTest() {
+		String jsonArr = "[{\"id\":111,\"name\":\"test1\"},{\"id\":112,\"name\":\"test2\"}]";
+		//noinspection MismatchedQueryAndUpdateOfCollection
+		final JSONArray array = new JSONArray(jsonArr, null, (mutable) -> mutable.get().toString().contains("111"));
+		Assert.assertEquals(1, array.size());
+		Assert.assertTrue(array.getJSONObject(0).containsKey("id"));
+	}
+
+	@Test
+	public void parseFilterEditTest() {
+		String jsonArr = "[{\"id\":111,\"name\":\"test1\"},{\"id\":112,\"name\":\"test2\"}]";
+		//noinspection MismatchedQueryAndUpdateOfCollection
+		final JSONArray array = new JSONArray(jsonArr, null, (mutable) -> {
+			final JSONObject o = new JSONObject(mutable.get());
+			if("111".equals(o.getStr("id"))){
+				o.set("name", "test1_edit");
+			}
+			mutable.set(o);
+			return true;
+		});
+		Assert.assertEquals(2, array.size());
+		Assert.assertTrue(array.getJSONObject(0).containsKey("id"));
+		Assert.assertEquals("test1_edit", array.getJSONObject(0).get("name"));
 	}
 }

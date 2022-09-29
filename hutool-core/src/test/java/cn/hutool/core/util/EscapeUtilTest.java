@@ -4,12 +4,12 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class EscapeUtilTest {
-	
+
 	@Test
 	public void escapeHtml4Test() {
 		String escapeHtml4 = EscapeUtil.escapeHtml4("<a>你好</a>");
 		Assert.assertEquals("&lt;a&gt;你好&lt;/a&gt;", escapeHtml4);
-		
+
 		String result = EscapeUtil.unescapeHtml4("&#25391;&#33633;&#22120;&#31867;&#22411;");
 		Assert.assertEquals("振荡器类型", result);
 
@@ -38,10 +38,32 @@ public class EscapeUtilTest {
 		Assert.assertEquals(str, unescape);
 	}
 
+	/**
+	 * https://gitee.com/dromara/hutool/issues/I49JU8
+	 */
 	@Test
-	public void escapeSinleQuotesTest(){
+	public void escapeAllTest2(){
+		String str = "٩";
+
+		String escape = EscapeUtil.escapeAll(str);
+		Assert.assertEquals("%u0669", escape);
+
+		String unescape = EscapeUtil.unescape(escape);
+		Assert.assertEquals(str, unescape);
+	}
+
+	@Test
+	public void escapeSingleQuotesTest(){
+		// 单引号不做转义
 		String str = "'some text with single quotes'";
 		final String s = EscapeUtil.escapeHtml4(str);
-		Assert.assertEquals(str, s);
+		Assert.assertEquals("'some text with single quotes'", s);
+	}
+
+	@Test
+	public void unescapeSingleQuotesTest(){
+		String str = "&apos;some text with single quotes&apos;";
+		final String s = EscapeUtil.unescapeHtml4(str);
+		Assert.assertEquals("'some text with single quotes'", s);
 	}
 }

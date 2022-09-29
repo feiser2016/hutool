@@ -1,6 +1,7 @@
 package cn.hutool.core.img;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.io.IORuntimeException;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -13,6 +14,8 @@ import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 public class ImgUtilTest {
 
@@ -47,7 +50,7 @@ public class ImgUtilTest {
 	public void cutTest() {
 		ImgUtil.cut(FileUtil.file("d:/face.jpg"), FileUtil.file("d:/face_result.jpg"), new Rectangle(200, 200, 100, 100));
 	}
-	
+
 	@Test
 	@Ignore
 	public void rotateTest() throws IOException {
@@ -65,9 +68,9 @@ public class ImgUtilTest {
 	@Ignore
 	public void pressImgTest() {
 		ImgUtil.pressImage(
-				FileUtil.file("d:/test/617180969474805871.jpg"),
-				FileUtil.file("d:/test/dest.png"),
-				ImgUtil.read(FileUtil.file("d:/test/vbbb.png")), 0, 0, 0.9f);
+				FileUtil.file("d:/test/1435859438434136064.jpg"),
+				FileUtil.file("d:/test/dest.jpg"),
+				ImgUtil.read(FileUtil.file("d:/test/qrcodeCustom.png")), 0, 0, 0.9f);
 	}
 
 	@Test
@@ -86,29 +89,29 @@ public class ImgUtilTest {
 	@Test
 	@Ignore
 	public void sliceByRowsAndColsTest() {
-		ImgUtil.sliceByRowsAndCols(FileUtil.file("d:/test/logo.jpg"), FileUtil.file("d:/test/dest"), 1, 5);
+		ImgUtil.sliceByRowsAndCols(FileUtil.file("d:/temp/2.png"), FileUtil.file("d:/temp/slice/png"),ImgUtil.IMAGE_TYPE_PNG, 1, 5);
 	}
-	
+
 	@Test
 	@Ignore
 	public void convertTest() {
 		ImgUtil.convert(FileUtil.file("e:/test2.png"), FileUtil.file("e:/test2Convert.jpg"));
 	}
-	
+
 	@Test
 	@Ignore
 	public void writeTest() {
 		final byte[] bytes = ImgUtil.toBytes(ImgUtil.read("d:/test/logo_484.png"), "png");
 		FileUtil.writeBytes(bytes, "d:/test/result.png");
 	}
-	
+
 	@Test
 	@Ignore
 	public void compressTest() {
 		ImgUtil.compress(FileUtil.file("d:/test/dest.png"),
 				FileUtil.file("d:/test/1111_target.jpg"), 0.1f);
 	}
-	
+
 	@Test
 	@Ignore
 	public void copyTest() {
@@ -136,4 +139,35 @@ public class ImgUtilTest {
 				new File("d:/test/3.jpg"),
 				new Color(200, 0, 0), 10);
 	}
+
+	@Test
+	public void getMainColor() throws MalformedURLException {
+		BufferedImage read = ImgUtil.read(new URL("https://pic2.zhimg.com/v2-94f5552f2b142ff575306850c5bab65d_b.png"));
+		String mainColor = ImgUtil.getMainColor(read, new int[]{64,84,116});
+		System.out.println(mainColor);
+	}
+
+	@Test
+	@Ignore
+	public void createImageTest() throws IORuntimeException, IOException {
+		ImgUtil.createImage(
+				"版权所有",
+				new Font("黑体", Font.BOLD, 50),
+				Color.WHITE,
+				Color.BLACK,
+				ImageIO.createImageOutputStream(new File("d:/test/createImageTest.png"))
+		);
+	}
+
+	@Test
+	@Ignore
+	public void createTransparentImageTest() throws IORuntimeException, IOException {
+		ImgUtil.createTransparentImage(
+				"版权所有",
+				new Font("黑体", Font.BOLD, 50),
+				Color.BLACK,
+				ImageIO.createImageOutputStream(new File("d:/test/createTransparentImageTest.png"))
+		);
+	}
+
 }

@@ -2,7 +2,7 @@ package cn.hutool.db.sql;
 
 import cn.hutool.core.clone.CloneSupport;
 import cn.hutool.core.convert.Convert;
-import cn.hutool.core.text.StrSpliter;
+import cn.hutool.core.text.StrSplitter;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.CharUtil;
 import cn.hutool.core.util.NumberUtil;
@@ -258,6 +258,16 @@ public class Condition extends CloneSupport<Condition> {
 	}
 
 	/**
+	 * 是否LIKE条件
+	 *
+	 * @return 是否LIKE条件
+	 * @since 5.7.14
+	 */
+	public boolean isOperatorLike() {
+		return OPERATOR_LIKE.equalsIgnoreCase(this.operator);
+	}
+
+	/**
 	 * 检查值是否为null，如果为null转换为 "IS NULL"形式
 	 *
 	 * @return this
@@ -343,7 +353,9 @@ public class Condition extends CloneSupport<Condition> {
 				}
 			} else {
 				// 直接使用条件值
-				conditionStrBuilder.append(" ").append(this.value);
+				final String valueStr = String.valueOf(this.value);
+				conditionStrBuilder.append(" ").append(isOperatorLike() ?
+						StrUtil.wrap(valueStr, "'") : valueStr);
 			}
 		}
 
@@ -373,7 +385,7 @@ public class Condition extends CloneSupport<Condition> {
 		}
 
 		// 处理 AND y
-		conditionStrBuilder.append(StrUtil.SPACE).append(LogicalOperator.AND.toString());
+		conditionStrBuilder.append(StrUtil.SPACE).append(LogicalOperator.AND);
 		if (isPlaceHolder()) {
 			// 使用条件表达式占位符
 			conditionStrBuilder.append(" ?");
@@ -397,12 +409,15 @@ public class Condition extends CloneSupport<Condition> {
 		conditionStrBuilder.append(" (");
 		final Object value = this.value;
 		if (isPlaceHolder()) {
-			List<?> valuesForIn;
+			Collection<?> valuesForIn;
 			// 占位符对应值列表
-			if (value instanceof CharSequence) {
+			if (value instanceof Collection) {
+				// pr#2046@Github
+				valuesForIn = (Collection<?>) value;
+			} else if (value instanceof CharSequence) {
 				valuesForIn = StrUtil.split((CharSequence) value, ',');
 			} else {
-				valuesForIn = Arrays.asList(Convert.convert(String[].class, value));
+				valuesForIn = Arrays.asList(Convert.convert(Object[].class, value));
 			}
 			conditionStrBuilder.append(StrUtil.repeatAndJoin("?", valuesForIn.size(), ","));
 			if (null != paramValues) {
@@ -488,7 +503,7 @@ public class Condition extends CloneSupport<Condition> {
 
 		// 处理BETWEEN x AND y
 		if (OPERATOR_BETWEEN.equals(firstPart)) {
-			final List<String> betweenValueStrs = StrSpliter.splitTrimIgnoreCase(strs.get(1), LogicalOperator.AND.toString(), 2, true);
+			final List<String> betweenValueStrs = StrSplitter.splitTrimIgnoreCase(strs.get(1), LogicalOperator.AND.toString(), 2, true);
 			if (betweenValueStrs.size() < 2) {
 				// 必须满足a AND b格式，不满足被当作普通值
 				return;
@@ -536,14 +551,14 @@ public class Condition extends CloneSupport<Condition> {
 	 * @param value 被转换的字符串值
 	 * @return 转换后的值
 	 */
-	private static Object tryToNumber(String value){
+	private static Object tryToNumber(String value) {
 		value = StrUtil.trim(value);
-		if(false == NumberUtil.isNumber(value)){
+		if (false == NumberUtil.isNumber(value)) {
 			return value;
 		}
-		try{
+		try {
 			return NumberUtil.parseNumber(value);
-		} catch (Exception ignore){
+		} catch (Exception ignore) {
 			return value;
 		}
 	}

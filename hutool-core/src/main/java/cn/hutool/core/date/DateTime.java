@@ -3,14 +3,17 @@ package cn.hutool.core.date;
 import cn.hutool.core.date.format.DateParser;
 import cn.hutool.core.date.format.DatePrinter;
 import cn.hutool.core.date.format.FastDateFormat;
+import cn.hutool.core.date.format.GlobalCustomFormat;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.core.util.SystemPropsUtil;
 
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -21,12 +24,29 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 /**
- * 包装java.util.Date
+ * 包装{@link Date}<br>
+ * 此类继承了{@link Date}，并提供扩展方法，如时区等。<br>
+ * 此类重写了父类的{@code toString()}方法，返回值为"yyyy-MM-dd HH:mm:ss"格式
  *
  * @author xiaoleilu
  */
 public class DateTime extends Date {
 	private static final long serialVersionUID = -5395712593979185936L;
+
+	private static boolean useJdkToStringStyle = false;
+
+	/**
+	 * 设置全局的，是否使用{@link Date}默认的toString()格式<br>
+	 * 如果为{@code true}，则调用toString()时返回"EEE MMM dd HH:mm:ss zzz yyyy"格式，<br>
+	 * 如果为{@code false}，则返回"yyyy-MM-dd HH:mm:ss"，<br>
+	 * 默认为{@code false}
+	 *
+	 * @param customUseJdkToStringStyle 是否使用{@link Date}默认的toString()格式
+	 * @since 5.7.21
+	 */
+	public static void setUseJdkToStringStyle(boolean customUseJdkToStringStyle){
+		useJdkToStringStyle = customUseJdkToStringStyle;
+	}
 
 	/**
 	 * 是否可变对象
@@ -40,6 +60,11 @@ public class DateTime extends Date {
 	 * 时区
 	 */
 	private TimeZone timeZone;
+
+	/**
+	 * 第一周最少天数
+	 */
+	private int minimalDaysInFirstWeek;
 
 	/**
 	 * 转换时间戳为 DateTime
@@ -122,7 +147,7 @@ public class DateTime extends Date {
 	 */
 	public DateTime(Date date) {
 		this(
-				date.getTime(),//
+				date,//
 				(date instanceof DateTime) ? ((DateTime) date).timeZone : TimeZone.getDefault()
 		);
 	}
@@ -135,7 +160,7 @@ public class DateTime extends Date {
 	 * @since 4.1.2
 	 */
 	public DateTime(Date date, TimeZone timeZone) {
-		this(date.getTime(), timeZone);
+		this(ObjectUtil.defaultIfNull(date, new Date()).getTime(), timeZone);
 	}
 
 	/**
@@ -166,7 +191,7 @@ public class DateTime extends Date {
 	 * @since 5.0.5
 	 */
 	public DateTime(Instant instant, ZoneId zoneId) {
-		this(instant.toEpochMilli(), TimeZone.getTimeZone(ObjectUtil.defaultIfNull(zoneId, ZoneId.systemDefault())));
+		this(instant.toEpochMilli(), ZoneUtil.toTimeZone(zoneId));
 	}
 
 	/**
@@ -176,7 +201,7 @@ public class DateTime extends Date {
 	 * @since 5.0.0
 	 */
 	public DateTime(TemporalAccessor temporalAccessor) {
-		this(DateUtil.toInstant(temporalAccessor));
+		this(TemporalAccessorUtil.toInstant(temporalAccessor));
 	}
 
 	/**
@@ -208,7 +233,39 @@ public class DateTime extends Date {
 	 */
 	public DateTime(long timeMillis, TimeZone timeZone) {
 		super(timeMillis);
-		this.timeZone = ObjectUtil.defaultIfNull(timeZone, TimeZone.getDefault());
+		this.timeZone = ObjectUtil.defaultIfNull(timeZone, TimeZone::getDefault);
+	}
+
+	/**
+	 * 构造格式：<br>
+	 * <ol>
+	 * <li>yyyy-MM-dd HH:mm:ss</li>
+	 * <li>yyyy/MM/dd HH:mm:ss</li>
+	 * <li>yyyy.MM.dd HH:mm:ss</li>
+	 * <li>yyyy年MM月dd日 HH时mm分ss秒</li>
+	 * <li>yyyy-MM-dd</li>
+	 * <li>yyyy/MM/dd</li>
+	 * <li>yyyy.MM.dd</li>
+	 * <li>HH:mm:ss</li>
+	 * <li>HH时mm分ss秒</li>
+	 * <li>yyyy-MM-dd HH:mm</li>
+	 * <li>yyyy-MM-dd HH:mm:ss.SSS</li>
+	 * <li>yyyyMMddHHmmss</li>
+	 * <li>yyyyMMddHHmmssSSS</li>
+	 * <li>yyyyMMdd</li>
+	 * <li>EEE, dd MMM yyyy HH:mm:ss z</li>
+	 * <li>EEE MMM dd HH:mm:ss zzz yyyy</li>
+	 * <li>yyyy-MM-dd'T'HH:mm:ss'Z'</li>
+	 * <li>yyyy-MM-dd'T'HH:mm:ss.SSS'Z'</li>
+	 * <li>yyyy-MM-dd'T'HH:mm:ssZ</li>
+	 * <li>yyyy-MM-dd'T'HH:mm:ss.SSSZ</li>
+	 * </ol>
+	 *
+	 * @param dateStr Date字符串
+	 * @since 5.6.2
+	 */
+	public DateTime(CharSequence dateStr) {
+		this(DateUtil.parse(dateStr));
 	}
 
 	/**
@@ -219,7 +276,9 @@ public class DateTime extends Date {
 	 * @see DatePattern
 	 */
 	public DateTime(CharSequence dateStr, String format) {
-		this(dateStr, DateUtil.newSimpleFormat(format));
+		this(GlobalCustomFormat.isCustomFormat(format)
+				? GlobalCustomFormat.parse(dateStr, format)
+				: parse(dateStr, DateUtil.newSimpleFormat(format)));
 	}
 
 	/**
@@ -241,7 +300,7 @@ public class DateTime extends Date {
 	 * @since 5.0.0
 	 */
 	public DateTime(CharSequence dateStr, DateTimeFormatter formatter) {
-		this(Instant.from(formatter.parse(dateStr)), formatter.getZone());
+		this(TemporalAccessorUtil.toInstant(formatter.parse(dateStr)), formatter.getZone());
 	}
 
 	/**
@@ -252,7 +311,19 @@ public class DateTime extends Date {
 	 * @see DatePattern
 	 */
 	public DateTime(CharSequence dateStr, DateParser dateParser) {
-		this(parse(dateStr, dateParser), dateParser.getTimeZone());
+		this(dateStr, dateParser, SystemPropsUtil.getBoolean(SystemPropsUtil.HUTOOL_DATE_LENIENT, true));
+	}
+
+	/**
+	 * 构造
+	 *
+	 * @param dateStr    Date字符串
+	 * @param dateParser 格式化器 {@link DateParser}，可以使用 {@link FastDateFormat}
+	 * @param lenient    是否宽容模式
+	 * @see DatePattern
+	 */
+	public DateTime(CharSequence dateStr, DateParser dateParser, boolean lenient) {
+		this(parse(dateStr, dateParser, lenient));
 	}
 
 	// -------------------------------------------------------------------- Constructor end
@@ -294,8 +365,7 @@ public class DateTime extends Date {
 		//noinspection MagicConstant
 		cal.add(datePart.getValue(), offset);
 
-		DateTime dt = ObjectUtil.clone(this);
-		return dt.setTimeInternal(cal.getTimeInMillis());
+		return ObjectUtil.clone(this).setTimeInternal(cal.getTimeInMillis());
 	}
 	// -------------------------------------------------------------------- offset end
 
@@ -540,17 +610,6 @@ public class DateTime extends Date {
 	}
 
 	/**
-	 * 获得指定日期的毫秒数部分<br>
-	 *
-	 * @return 毫秒数
-	 * @deprecated 拼写错误，请使用{@link #millisecond()}
-	 */
-	@Deprecated
-	public int millsecond() {
-		return getField(DateField.MILLISECOND);
-	}
-
-	/**
 	 * 是否为上午
 	 *
 	 * @return 是否为上午
@@ -633,6 +692,10 @@ public class DateTime extends Date {
 		final Calendar cal = (null != zone) ? Calendar.getInstance(zone, locale) : Calendar.getInstance(locale);
 		//noinspection MagicConstant
 		cal.setFirstDayOfWeek(firstDayOfWeek.getValue());
+		// issue#1988@Github
+		if (minimalDaysInFirstWeek > 0) {
+			cal.setMinimalDaysInFirstWeek(minimalDaysInFirstWeek);
+		}
 		cal.setTime(this);
 		return cal;
 	}
@@ -667,6 +730,16 @@ public class DateTime extends Date {
 	}
 
 	/**
+	 * 转换为 {@link LocalDateTime}
+	 *
+	 * @return {@link LocalDateTime}
+	 * @since 5.7.16
+	 */
+	public LocalDateTime toLocalDateTime() {
+		return LocalDateTimeUtil.of(this);
+	}
+
+	/**
 	 * 计算相差时长
 	 *
 	 * @param date 对比的日期
@@ -696,15 +769,15 @@ public class DateTime extends Date {
 	 * @return 相差时长
 	 */
 	public String between(Date date, DateUnit unit, BetweenFormatter.Level formatLevel) {
-		return new DateBetween(this, date).toString(formatLevel);
+		return new DateBetween(this, date).toString(unit, formatLevel);
 	}
 
 	/**
 	 * 当前日期是否在日期指定范围内<br>
 	 * 起始日期和结束日期可以互换
 	 *
-	 * @param beginDate 起始日期
-	 * @param endDate   结束日期
+	 * @param beginDate 起始日期（包含）
+	 * @param endDate   结束日期（包含）
 	 * @return 是否在范围内
 	 * @since 3.0.8
 	 */
@@ -857,20 +930,37 @@ public class DateTime extends Date {
 	 * @since 4.1.2
 	 */
 	public DateTime setTimeZone(TimeZone timeZone) {
-		this.timeZone = ObjectUtil.defaultIfNull(timeZone, TimeZone.getDefault());
+		this.timeZone = ObjectUtil.defaultIfNull(timeZone, TimeZone::getDefault);
+		return this;
+	}
+
+	/**
+	 * 设置第一周最少天数
+	 *
+	 * @param minimalDaysInFirstWeek 第一周最少天数
+	 * @return this
+	 * @since 5.7.17
+	 */
+	public DateTime setMinimalDaysInFirstWeek(int minimalDaysInFirstWeek) {
+		this.minimalDaysInFirstWeek = minimalDaysInFirstWeek;
 		return this;
 	}
 
 	// -------------------------------------------------------------------- toString start
 
 	/**
-	 * 转为"yyyy-MM-dd HH:mm:ss" 格式字符串<br>
-	 * 如果时区被设置，会转换为其时区对应的时间，否则转换为当前地点对应的时区
+	 * 转为字符串，如果时区被设置，会转换为其时区对应的时间，否则转换为当前地点对应的时区<br>
+	 * 可以调用{@link DateTime#setUseJdkToStringStyle(boolean)} 方法自定义默认的风格<br>
+	 * 如果{@link #useJdkToStringStyle}为{@code true}，返回"EEE MMM dd HH:mm:ss zzz yyyy"格式，<br>
+	 * 如果为{@code false}，则返回"yyyy-MM-dd HH:mm:ss"
 	 *
-	 * @return "yyyy-MM-dd HH:mm:ss" 格式字符串
+	 * @return 格式字符串
 	 */
 	@Override
 	public String toString() {
+		if(useJdkToStringStyle){
+			return super.toString();
+		}
 		return toString(this.timeZone);
 	}
 
@@ -994,16 +1084,21 @@ public class DateTime extends Date {
 	 *
 	 * @param dateStr 日期字符串
 	 * @param parser  {@link FastDateFormat}
-	 * @return {@link Date}
+	 * @param lenient 是否宽容模式
+	 * @return {@link Calendar}
 	 */
-	private static Date parse(CharSequence dateStr, DateParser parser) {
+	private static Calendar parse(CharSequence dateStr, DateParser parser, boolean lenient) {
 		Assert.notNull(parser, "Parser or DateFromat must be not null !");
 		Assert.notBlank(dateStr, "Date String must be not blank !");
-		try {
-			return parser.parse(dateStr.toString());
-		} catch (Exception e) {
-			throw new DateException("Parse [{}] with format [{}] error!", dateStr, parser.getPattern(), e);
+
+		final Calendar calendar = CalendarUtil.parse(dateStr, lenient, parser);
+		if (null == calendar) {
+			throw new DateException("Parse [{}] with format [{}] error!", dateStr, parser.getPattern());
 		}
+
+		//noinspection MagicConstant
+		calendar.setFirstDayOfWeek(Week.MONDAY.getValue());
+		return calendar;
 	}
 
 	/**

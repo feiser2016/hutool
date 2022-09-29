@@ -1,11 +1,14 @@
 package cn.hutool.db.dialect;
 
+import cn.hutool.core.map.SafeConcurrentHashMap;
 import cn.hutool.core.util.ClassLoaderUtil;
+import cn.hutool.core.util.ReUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.db.dialect.impl.AnsiSqlDialect;
 import cn.hutool.db.dialect.impl.H2Dialect;
 import cn.hutool.db.dialect.impl.MysqlDialect;
 import cn.hutool.db.dialect.impl.OracleDialect;
+import cn.hutool.db.dialect.impl.PhoenixDialect;
 import cn.hutool.db.dialect.impl.PostgresqlDialect;
 import cn.hutool.db.dialect.impl.SqlServer2012Dialect;
 import cn.hutool.db.dialect.impl.Sqlite3Dialect;
@@ -14,7 +17,6 @@ import cn.hutool.log.StaticLog;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 方言工厂类
@@ -22,38 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author loolly
  *
  */
-public class DialectFactory {
+public class DialectFactory implements DriverNamePool{
 
-	/** JDBC 驱动 MySQL */
-	public static final String DRIVER_MYSQL = "com.mysql.jdbc.Driver";
-	/** JDBC 驱动 MySQL，在6.X版本中变动驱动类名，且使用SPI机制 */
-	public static final String DRIVER_MYSQL_V6 = "com.mysql.cj.jdbc.Driver";
-	/** JDBC 驱动 Oracle */
-	public static final String DRIVER_ORACLE = "oracle.jdbc.OracleDriver";
-	/** JDBC 驱动 Oracle，旧版使用 */
-	public static final String DRIVER_ORACLE_OLD = "oracle.jdbc.driver.OracleDriver";
-	/** JDBC 驱动 PostgreSQL */
-	public static final String DRIVER_POSTGRESQL = "org.postgresql.Driver";
-	/** JDBC 驱动 SQLLite3 */
-	public static final String DRIVER_SQLLITE3 = "org.sqlite.JDBC";
-	/** JDBC 驱动 SQLServer */
-	public static final String DRIVER_SQLSERVER = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-	/** JDBC 驱动 Hive */
-	public static final String DRIVER_HIVE = "org.apache.hadoop.hive.jdbc.HiveDriver";
-	/** JDBC 驱动 Hive2 */
-	public static final String DRIVER_HIVE2 = "org.apache.hive.jdbc.HiveDriver";
-	/** JDBC 驱动 H2 */
-	public static final String DRIVER_H2 = "org.h2.Driver";
-	/** JDBC 驱动 Derby */
-	public static final String DRIVER_DERBY = "org.apache.derby.jdbc.AutoloadedDriver";
-	/** JDBC 驱动 HSQLDB */
-	public static final String DRIVER_HSQLDB = "org.hsqldb.jdbc.JDBCDriver";
-	/** JDBC 驱动 达梦7 */
-	public static final String DRIVER_DM7 = "dm.jdbc.driver.DmDriver";
-	/** JDBC 驱动 人大金仓 */
-	public static final String DRIVER_KINGBASE8 = "com.kingbase8.Driver";
-
-	private static final Map<DataSource, Dialect> DIALECT_POOL = new ConcurrentHashMap<>();
+	private static final Map<DataSource, Dialect> DIALECT_POOL = new SafeConcurrentHashMap<>();
 
 	private DialectFactory() {
 	}
@@ -92,6 +65,8 @@ public class DialectFactory {
 				return new H2Dialect();
 			} else if (DRIVER_SQLSERVER.equalsIgnoreCase(driverName)) {
 				return new SqlServer2012Dialect();
+			} else if (DRIVER_PHOENIX.equalsIgnoreCase(driverName)) {
+				return new PhoenixDialect();
 			}
 		}
 		// 无法识别可支持的数据库类型默认使用ANSI方言，可兼容大部分SQL语句
@@ -111,8 +86,14 @@ public class DialectFactory {
 		// 全部转为小写，忽略大小写
 		nameContainsProductInfo = StrUtil.cleanBlank(nameContainsProductInfo.toLowerCase());
 
+		// 首先判断是否为标准的JDBC URL，截取jdbc:xxxx:中间部分
+		final String name = ReUtil.getGroup1("jdbc:(.*?):", nameContainsProductInfo);
+		if(StrUtil.isNotBlank(name)){
+			nameContainsProductInfo = name;
+		}
+
 		String driver = null;
-		if (nameContainsProductInfo.contains("mysql")) {
+		if (nameContainsProductInfo.contains("mysql") || nameContainsProductInfo.contains("cobar")) {
 			driver = ClassLoaderUtil.isPresent(DRIVER_MYSQL_V6) ? DRIVER_MYSQL_V6 : DRIVER_MYSQL;
 		} else if (nameContainsProductInfo.contains("oracle")) {
 			driver = ClassLoaderUtil.isPresent(DRIVER_ORACLE) ? DRIVER_ORACLE : DRIVER_ORACLE_OLD;
@@ -120,8 +101,10 @@ public class DialectFactory {
 			driver = DRIVER_POSTGRESQL;
 		} else if (nameContainsProductInfo.contains("sqlite")) {
 			driver = DRIVER_SQLLITE3;
-		} else if (nameContainsProductInfo.contains("sqlserver")) {
+		} else if (nameContainsProductInfo.contains("sqlserver") || nameContainsProductInfo.contains("microsoft")) {
 			driver = DRIVER_SQLSERVER;
+		} else if (nameContainsProductInfo.contains("hive2")) {
+			driver = DRIVER_HIVE2;
 		} else if (nameContainsProductInfo.contains("hive")) {
 			driver = DRIVER_HIVE;
 		} else if (nameContainsProductInfo.contains("h2")) {
@@ -138,6 +121,39 @@ public class DialectFactory {
 		} else if (nameContainsProductInfo.contains("kingbase8")) {
 			// 人大金仓8
 			driver = DRIVER_KINGBASE8;
+		} else if (nameContainsProductInfo.contains("ignite")) {
+			// Ignite thin
+			driver = DRIVER_IGNITE_THIN;
+		} else if (nameContainsProductInfo.contains("clickhouse")) {
+			// ClickHouse
+			driver = DRIVER_CLICK_HOUSE;
+		} else if (nameContainsProductInfo.contains("highgo")) {
+			// 瀚高
+			driver = DRIVER_HIGHGO;
+		} else if (nameContainsProductInfo.contains("db2")) {
+			// DB2
+			driver = DRIVER_DB2;
+		} else if (nameContainsProductInfo.contains("xugu")) {
+			// 虚谷
+			driver = DRIVER_XUGU;
+		} else if (nameContainsProductInfo.contains("phoenix")) {
+			// Apache Phoenix
+			driver = DRIVER_PHOENIX;
+		} else if (nameContainsProductInfo.contains("zenith")) {
+			// 华为高斯
+			driver = DRIVER_GAUSS;
+		} else if (nameContainsProductInfo.contains("gbase")) {
+			// 华为高斯
+			driver = DRIVER_GBASE;
+		} else if (nameContainsProductInfo.contains("oscar")) {
+			// 神州数据库
+			driver = DRIVER_OSCAR;
+		} else if (nameContainsProductInfo.contains("sybase")) {
+			// 神州数据库
+			driver = DRIVER_SYBASE;
+		} else if (nameContainsProductInfo.contains("xugu")) {
+			// 虚谷数据库
+			driver = DRIVER_XUGO;
 		}
 
 		return driver;
@@ -154,11 +170,7 @@ public class DialectFactory {
 			// 数据源作为锁的意义在于：不同数据源不会导致阻塞，相同数据源获取方言时可保证互斥
 			//noinspection SynchronizationOnLocalVariableOrMethodParameter
 			synchronized (ds) {
-				dialect = DIALECT_POOL.get(ds);
-				if(null == dialect) {
-					dialect = newDialect(ds);
-					DIALECT_POOL.put(ds, dialect);
-				}
+				dialect = DIALECT_POOL.computeIfAbsent(ds, DialectFactory::newDialect);
 			}
 		}
 		return dialect;

@@ -3,14 +3,14 @@ package cn.hutool.core.lang.mutable;
 import cn.hutool.core.util.NumberUtil;
 
 /**
- * 可变 <code>byte</code> 类型
- * 
+ * 可变 {@code byte} 类型
+ *
  * @see Byte
  * @since 3.0.1
  */
 public class MutableByte extends Number implements Comparable<MutableByte>, Mutable<Number> {
 	private static final long serialVersionUID = 1L;
-	
+
 	private byte value;
 
 	/**
@@ -46,7 +46,7 @@ public class MutableByte extends Number implements Comparable<MutableByte>, Muta
 
 	@Override
 	public Byte get() {
-		return Byte.valueOf(this.value);
+		return this.value;
 	}
 
 	/**
@@ -105,7 +105,7 @@ public class MutableByte extends Number implements Comparable<MutableByte>, Muta
 
 	/**
 	 * 减去值
-	 * 
+	 *
 	 * @param operand 被减的值
 	 * @return this
 	 */
@@ -116,7 +116,7 @@ public class MutableByte extends Number implements Comparable<MutableByte>, Muta
 
 	/**
 	 * 减去值
-	 * 
+	 *
 	 * @param operand 被减的值，非空
 	 * @return this
 	 * @throws NullPointerException if the object is null
@@ -157,12 +157,12 @@ public class MutableByte extends Number implements Comparable<MutableByte>, Muta
 	 * 相等需同时满足如下条件：
 	 * <ol>
 	 * 	<li>非空</li>
-	 * 	<li>类型为 {@link MutableByte}</li>
+	 * 	<li>类型为 MutableByte</li>
 	 * 	<li>值相等</li>
 	 * </ol>
-	 * 
+	 *
 	 * @param obj 比对的对象
-	 * @return 相同返回<code>true</code>，否则 <code>false</code>
+	 * @return 相同返回<code>true</code>，否则 {@code false}
 	 */
 	@Override
 	public boolean equals(final Object obj) {
@@ -180,8 +180,8 @@ public class MutableByte extends Number implements Comparable<MutableByte>, Muta
 	// -----------------------------------------------------------------------
 	/**
 	 * 比较
-	 * 
-	 * @param other 其它 {@link MutableByte} 对象
+	 *
+	 * @param other 其它 MutableByte 对象
 	 * @return x==y返回0，x&lt;y返回-1，x&gt;y返回1
 	 */
 	@Override

@@ -9,6 +9,9 @@ import cn.hutool.extra.expression.engine.spel.SpELEngine;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class ExpressionUtilTest {
 
 	@Test
@@ -18,7 +21,7 @@ public class ExpressionUtilTest {
 				.set("b", 45)
 				.set("c", -199.100);
 		final Object eval = ExpressionUtil.eval("a-(b-c)", dict);
-		Assert.assertEquals(-143.8, (double)eval, 2);
+		Assert.assertEquals(-143.8, (double)eval, 0);
 	}
 
 	@Test
@@ -30,7 +33,18 @@ public class ExpressionUtilTest {
 				.set("b", 45)
 				.set("c", -199.100);
 		final Object eval = engine.eval("a-(b-c)", dict);
-		Assert.assertEquals(-143.8, (double)eval, 2);
+		Assert.assertEquals(-143.8, (double)eval, 0);
+	}
+
+	@Test
+	public void jexlScriptTest(){
+		ExpressionEngine engine = new JexlEngine();
+
+		String exps2="if(a>0){return 100;}";
+		Map<String,Object> map2=new HashMap<>();
+		map2.put("a", 1);
+		Object eval1 = engine.eval(exps2, map2);
+		Assert.assertEquals(100, eval1);
 	}
 
 	@Test
@@ -42,7 +56,7 @@ public class ExpressionUtilTest {
 				.set("b", 45)
 				.set("c", -199.100);
 		final Object eval = engine.eval("a-(b-c)", dict);
-		Assert.assertEquals(-143.8, (double)eval, 2);
+		Assert.assertEquals(-143.8, (double)eval, 0);
 	}
 
 	@Test
@@ -54,7 +68,7 @@ public class ExpressionUtilTest {
 				.set("b", 45)
 				.set("c", -199.100);
 		final Object eval = engine.eval("a-(b-c)", dict);
-		Assert.assertEquals(-143.8, (double)eval, 2);
+		Assert.assertEquals(-143.8, (double)eval, 0);
 	}
 
 	@Test
@@ -66,7 +80,7 @@ public class ExpressionUtilTest {
 				.set("b", 45)
 				.set("c", -199.100);
 		final Object eval = engine.eval("#a-(#b-#c)", dict);
-		Assert.assertEquals(-143.8, (double)eval, 2);
+		Assert.assertEquals(-143.8, (double)eval, 0);
 	}
 
 	@Test
@@ -78,7 +92,7 @@ public class ExpressionUtilTest {
 				.set("b", 45)
 				.set("c", -199.100);
 		final Object eval = engine.eval("a-(b-c)", dict);
-		Assert.assertEquals(-143.8, (double)eval, 2);
+		Assert.assertEquals(-143.8, (double)eval, 0);
 	}
 
 }

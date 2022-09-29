@@ -7,6 +7,7 @@ import cn.hutool.core.util.URLUtil;
 import java.io.File;
 import java.io.InputStream;
 import java.io.Serializable;
+import java.net.URI;
 import java.net.URL;
 
 /**
@@ -16,11 +17,21 @@ import java.net.URL;
  */
 public class UrlResource implements Resource, Serializable{
 	private static final long serialVersionUID = 1L;
-	
+
 	protected URL url;
+	private long lastModified = 0;
 	protected String name;
-	
+
 	//-------------------------------------------------------------------------------------- Constructor start
+	/**
+	 * 构造
+	 * @param uri URI
+	 * @since 5.7.21
+	 */
+	public UrlResource(URI uri) {
+		this(URLUtil.url(uri), null);
+	}
+
 	/**
 	 * 构造
 	 * @param url URL
@@ -28,7 +39,7 @@ public class UrlResource implements Resource, Serializable{
 	public UrlResource(URL url) {
 		this(url, null);
 	}
-	
+
 	/**
 	 * 构造
 	 * @param url URL，允许为空
@@ -36,9 +47,12 @@ public class UrlResource implements Resource, Serializable{
 	 */
 	public UrlResource(URL url, String name) {
 		this.url = url;
-		this.name = ObjectUtil.defaultIfNull(name, (null != url) ? FileUtil.getName(url.getPath()) : null);
+		if(null != url && URLUtil.URL_PROTOCOL_FILE.equals(url.getProtocol())){
+			this.lastModified = FileUtil.file(url).lastModified();
+		}
+		this.name = ObjectUtil.defaultIfNull(name, () -> (null != url ? FileUtil.getName(url.getPath()) : null));
 	}
-	
+
 	/**
 	 * 构造
 	 * @param file 文件路径
@@ -49,17 +63,17 @@ public class UrlResource implements Resource, Serializable{
 		this.url = URLUtil.getURL(file);
 	}
 	//-------------------------------------------------------------------------------------- Constructor end
-	
+
 	@Override
 	public String getName() {
 		return this.name;
 	}
-	
+
 	@Override
 	public URL getUrl(){
 		return this.url;
 	}
-	
+
 	@Override
 	public InputStream getStream() throws NoResourceException{
 		if(null == this.url){
@@ -67,7 +81,13 @@ public class UrlResource implements Resource, Serializable{
 		}
 		return URLUtil.getStream(url);
 	}
-	
+
+	@Override
+	public boolean isModified() {
+		// lastModified == 0表示此资源非文件资源
+		return (0 != this.lastModified) && this.lastModified != getFile().lastModified();
+	}
+
 	/**
 	 * 获得File
 	 * @return {@link File}
@@ -75,7 +95,7 @@ public class UrlResource implements Resource, Serializable{
 	public File getFile(){
 		return FileUtil.file(this.url);
 	}
-	
+
 	/**
 	 * 返回路径
 	 * @return 返回URL路径

@@ -1,7 +1,7 @@
 package cn.hutool.db.meta;
 
 import cn.hutool.core.util.BooleanUtil;
-import cn.hutool.core.util.StrUtil;
+import cn.hutool.core.util.ReUtil;
 import cn.hutool.db.DbRuntimeException;
 
 import java.io.Serializable;
@@ -37,7 +37,7 @@ public class Column implements Serializable, Cloneable {
 	/**
 	 * 大小或数据长度
 	 */
-	private int size;
+	private long size;
 	private Integer digit;
 	/**
 	 * 是否为可空
@@ -52,23 +52,15 @@ public class Column implements Serializable, Cloneable {
 	 */
 	private boolean autoIncrement;
 	/**
+	 * 字段默认值<br>
+	 *  default value for the column, which should be interpreted as a string when the value is enclosed in single quotes (may be {@code null})
+	 */
+	private String columnDef;
+	/**
 	 * 是否为主键
 	 */
 	private boolean isPk;
 	// ----------------------------------------------------- Fields end
-
-	/**
-	 * 创建列对象
-	 *
-	 * @param tableName    表名
-	 * @param columnMetaRs 列元信息的ResultSet
-	 * @return 列对象
-	 * @deprecated 请使用 {@link #create(Table, ResultSet)}
-	 */
-	@Deprecated
-	public static Column create(String tableName, ResultSet columnMetaRs) {
-		return new Column(tableName, columnMetaRs);
-	}
 
 	/**
 	 * 创建列对象
@@ -93,22 +85,6 @@ public class Column implements Serializable, Cloneable {
 	/**
 	 * 构造
 	 *
-	 * @param tableName    表名
-	 * @param columnMetaRs Meta信息的ResultSet
-	 * @deprecated 请使用 {@link #Column(Table, ResultSet)}
-	 */
-	@Deprecated
-	public Column(String tableName, ResultSet columnMetaRs) {
-		try {
-			init(tableName, columnMetaRs);
-		} catch (SQLException e) {
-			throw new DbRuntimeException(StrUtil.format("Get table [{}] meta info error!", tableName));
-		}
-	}
-
-	/**
-	 * 构造
-	 *
 	 * @param table        表信息
 	 * @param columnMetaRs Meta信息的ResultSet
 	 * @since 5.4.3
@@ -117,23 +93,10 @@ public class Column implements Serializable, Cloneable {
 		try {
 			init(table, columnMetaRs);
 		} catch (SQLException e) {
-			throw new DbRuntimeException(StrUtil.format("Get table [{}] meta info error!", tableName));
+			throw new DbRuntimeException(e, "Get table [{}] meta info error!", tableName);
 		}
 	}
 	// ----------------------------------------------------- Constructor end
-
-	/**
-	 * 初始化
-	 *
-	 * @param tableName    表名
-	 * @param columnMetaRs 列的meta ResultSet
-	 * @throws SQLException SQL执行异常
-	 * @deprecated 请使用 {@link #init(Table, ResultSet)}
-	 */
-	@Deprecated
-	public void init(String tableName, ResultSet columnMetaRs) throws SQLException {
-		init(Table.create(tableName), columnMetaRs);
-	}
 
 	/**
 	 * 初始化
@@ -149,10 +112,16 @@ public class Column implements Serializable, Cloneable {
 		this.isPk = table.isPk(this.name);
 
 		this.type = columnMetaRs.getInt("DATA_TYPE");
-		this.typeName = columnMetaRs.getString("TYPE_NAME");
-		this.size = columnMetaRs.getInt("COLUMN_SIZE");
+
+		String typeName = columnMetaRs.getString("TYPE_NAME");
+		//issue#2201@Gitee
+		typeName = ReUtil.delLast("\\(\\d+\\)", typeName);
+		this.typeName = typeName;
+
+		this.size = columnMetaRs.getLong("COLUMN_SIZE");
 		this.isNullable = columnMetaRs.getBoolean("NULLABLE");
 		this.comment = columnMetaRs.getString("REMARKS");
+		this.columnDef = columnMetaRs.getString("COLUMN_DEF");
 
 		// 保留小数位数
 		try {
@@ -269,7 +238,7 @@ public class Column implements Serializable, Cloneable {
 	 *
 	 * @return 大小或数据长度
 	 */
-	public int getSize() {
+	public long getSize() {
 		return size;
 	}
 
@@ -387,10 +356,35 @@ public class Column implements Serializable, Cloneable {
 		this.isPk = isPk;
 		return this;
 	}
+	/**
+	 * 获取默认值
+	 *
+	 * @return 默认值
+	 */
+	public String getColumnDef() {
+		return columnDef;
+	}
+
+	/**
+	 * 设置默认值
+	 *
+	 * @param columnDef 默认值
+	 * @return this
+	 */
+	public Column setColumnDef(String columnDef) {
+		this.columnDef = columnDef;
+		return this;
+	}
+
 	// ----------------------------------------------------- Getters and Setters end
 
 	@Override
 	public String toString() {
 		return "Column [tableName=" + tableName + ", name=" + name + ", type=" + type + ", size=" + size + ", isNullable=" + isNullable + "]";
+	}
+
+	@Override
+	public Column clone() throws CloneNotSupportedException {
+		return (Column) super.clone();
 	}
 }

@@ -1,7 +1,9 @@
 package cn.hutool.core.text.csv;
 
+import cn.hutool.core.collection.ComputeIter;
 import cn.hutool.core.io.IORuntimeException;
 import cn.hutool.core.io.IoUtil;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.text.StrBuilder;
 import cn.hutool.core.util.CharUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -23,7 +25,7 @@ import java.util.Objects;
  *
  * @author Looly
  */
-public final class CsvParser implements Closeable, Serializable {
+public final class CsvParser extends ComputeIter<CsvRow> implements Closeable, Serializable {
 	private static final long serialVersionUID = 1L;
 
 	private static final int DEFAULT_ROW_CAPACITY = 10;
@@ -52,7 +54,11 @@ public final class CsvParser implements Closeable, Serializable {
 	/**
 	 * 当前行号
 	 */
-	private long lineNo;
+	private long lineNo = -1;
+	/**
+	 * 引号内的行数
+	 */
+	private long inQuotesLineCount;
 	/**
 	 * 第一行字段数，用于检查每行字段数是否一致
 	 */
@@ -74,23 +80,28 @@ public final class CsvParser implements Closeable, Serializable {
 	 */
 	public CsvParser(final Reader reader, CsvReadConfig config) {
 		this.reader = Objects.requireNonNull(reader, "reader must not be null");
-		this.config = ObjectUtil.defaultIfNull(config, CsvReadConfig.defaultConfig());
+		this.config = ObjectUtil.defaultIfNull(config, CsvReadConfig::defaultConfig);
 	}
 
 	/**
-	 * 获取头部字段列表，如果containsHeader设置为false则抛出异常
+	 * 获取头部字段列表，如果headerLineNo &lt; 0，抛出异常
 	 *
 	 * @return 头部列表
 	 * @throws IllegalStateException 如果不解析头部或者没有调用nextRow()方法
 	 */
 	public List<String> getHeader() {
-		if (false == config.containsHeader) {
+		if (config.headerLineNo  < 0) {
 			throw new IllegalStateException("No header available - header parsing is disabled");
 		}
-		if (lineNo == 0) {
+		if (lineNo < config.beginLineNo) {
 			throw new IllegalStateException("No header available - call nextRow() first");
 		}
 		return header.fields;
+	}
+
+	@Override
+	protected CsvRow computeNext() {
+		return nextRow();
 	}
 
 	/**
@@ -100,25 +111,35 @@ public final class CsvParser implements Closeable, Serializable {
 	 * @throws IORuntimeException IO读取异常
 	 */
 	public CsvRow nextRow() throws IORuntimeException {
-		long startingLineNo;
 		List<String> currentFields;
 		int fieldCount;
 		while (false == finished) {
-			startingLineNo = ++lineNo;
 			currentFields = readLine();
 			fieldCount = currentFields.size();
 			if (fieldCount < 1) {
+				// 空List表示读取结束
+				break;
+			}
+
+			// 读取范围校验
+			if(lineNo < config.beginLineNo){
+				// 未达到读取起始行，继续
+				continue;
+			}
+			if(lineNo > config.endLineNo){
+				// 超出结束行，读取结束
 				break;
 			}
 
 			// 跳过空行
 			if (config.skipEmptyRows && fieldCount == 1 && currentFields.get(0).isEmpty()) {
+				// [""]表示空行
 				continue;
 			}
 
 			// 检查每行的字段数是否一致
 			if (config.errorOnDifferentFieldCount) {
-				if (firstLineFieldCount == -1) {
+				if (firstLineFieldCount < 0) {
 					firstLineFieldCount = fieldCount;
 				} else if (fieldCount != firstLineFieldCount) {
 					throw new IORuntimeException(String.format("Line %d has %d fields, but first line has %d fields", lineNo, fieldCount, firstLineFieldCount));
@@ -131,13 +152,13 @@ public final class CsvParser implements Closeable, Serializable {
 			}
 
 			//初始化标题
-			if (config.containsHeader && null == header) {
+			if (lineNo == config.headerLineNo && null == header) {
 				initHeader(currentFields);
 				// 作为标题行后，此行跳过，下一行做为第一行
 				continue;
 			}
 
-			return new CsvRow(startingLineNo, null == header ? null : header.headerMap, currentFields);
+			return new CsvRow(lineNo, null == header ? null : header.headerMap, currentFields);
 		}
 
 		return null;
@@ -151,7 +172,11 @@ public final class CsvParser implements Closeable, Serializable {
 	private void initHeader(final List<String> currentFields) {
 		final Map<String, Integer> localHeaderMap = new LinkedHashMap<>(currentFields.size());
 		for (int i = 0; i < currentFields.size(); i++) {
-			final String field = currentFields.get(i);
+			String field = currentFields.get(i);
+			if (MapUtil.isNotEmpty(this.config.headerAlias)) {
+				// 自定义别名
+				field = ObjectUtil.defaultIfNull(this.config.headerAlias.get(field), field);
+			}
 			if (StrUtil.isNotEmpty(field) && false == localHeaderMap.containsKey(field)) {
 				localHeaderMap.put(field, i);
 			}
@@ -161,12 +186,24 @@ public final class CsvParser implements Closeable, Serializable {
 	}
 
 	/**
-	 * 读取一行数据
+	 * 读取一行数据，如果读取结束，返回size为0的List<br>
+	 * 空行是size为1的List，唯一元素是""
+	 *
+	 * <p>
+	 *     行号要考虑注释行和引号包装的内容中的换行
+	 * </p>
 	 *
 	 * @return 一行数据
 	 * @throws IORuntimeException IO异常
 	 */
 	private List<String> readLine() throws IORuntimeException {
+		// 矫正行号
+		// 当一行内容包含多行数据时，记录首行行号，但是读取下一行时，需要把多行内容的行数加上
+		if(inQuotesLineCount > 0){
+			this.lineNo += this.inQuotesLineCount;
+			this.inQuotesLineCount = 0;
+		}
+
 		final List<String> currentFields = new ArrayList<>(maxFieldCount > 0 ? maxFieldCount : DEFAULT_ROW_CAPACITY);
 
 		final StrBuilder currentField = this.currentField;
@@ -203,7 +240,7 @@ public final class CsvParser implements Closeable, Serializable {
 			if(preChar < 0 || preChar == CharUtil.CR || preChar == CharUtil.LF){
 				// 判断行首字符为指定注释字符的注释开始，直到遇到换行符
 				// 行首分两种，1是preChar < 0表示文本开始，2是换行符后紧跟就是下一行的开始
-				if(c == this.config.commentCharacter){
+				if(null != this.config.commentCharacter && c == this.config.commentCharacter){
 					inComment = true;
 				}
 			}
@@ -211,6 +248,7 @@ public final class CsvParser implements Closeable, Serializable {
 			if(inComment){
 				if (c == CharUtil.CR || c == CharUtil.LF) {
 					// 注释行以换行符为结尾
+					lineNo++;
 					inComment = false;
 				}
 				// 跳过注释行中的任何字符
@@ -225,9 +263,9 @@ public final class CsvParser implements Closeable, Serializable {
 					// End of quoted text
 					inQuotes = false;
 				} else {
-					// 新行
-					if ((c == CharUtil.CR || c == CharUtil.LF) && preChar != CharUtil.CR) {
-						lineNo++;
+					// 字段内容中新行
+					if (isLineEnd(c, preChar)) {
+						inQuotesLineCount++;
 					}
 				}
 				// 普通字段字符
@@ -280,6 +318,7 @@ public final class CsvParser implements Closeable, Serializable {
 		// restore fields
 		this.preChar = preChar;
 
+		lineNo++;
 		return currentFields;
 	}
 
@@ -296,9 +335,29 @@ public final class CsvParser implements Closeable, Serializable {
 	 */
 	private void addField(List<String> currentFields, String field) {
 		final char textDelimiter = this.config.textDelimiter;
+
+		// 忽略多余引号后的换行符
+		field = StrUtil.trim(field, 1, (c-> c == CharUtil.LF || c == CharUtil.CR));
+
 		field = StrUtil.unWrap(field, textDelimiter);
 		field = StrUtil.replace(field, "" + textDelimiter + textDelimiter, textDelimiter + "");
+		if(this.config.trimField){
+			// issue#I49M0C@Gitee
+			field = StrUtil.trim(field);
+		}
 		currentFields.add(field);
+	}
+
+	/**
+	 * 是否行结束符
+	 *
+	 * @param c       符号
+	 * @param preChar 前一个字符
+	 * @return 是否结束
+	 * @since 5.7.4
+	 */
+	private boolean isLineEnd(char c, int preChar) {
+		return (c == CharUtil.CR || c == CharUtil.LF) && preChar != CharUtil.CR;
 	}
 
 	/**
@@ -306,7 +365,9 @@ public final class CsvParser implements Closeable, Serializable {
 	 *
 	 * @author looly
 	 */
-	private static class Buffer {
+	private static class Buffer implements Serializable{
+		private static final long serialVersionUID = 1L;
+
 		final char[] buf;
 
 		/**
@@ -336,7 +397,8 @@ public final class CsvParser implements Closeable, Serializable {
 		}
 
 		/**
-		 * 读取到缓存
+		 * 读取到缓存<br>
+		 * 全量读取，会重置Buffer中所有数据
 		 *
 		 * @param reader {@link Reader}
 		 */

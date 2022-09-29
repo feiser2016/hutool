@@ -3,14 +3,14 @@ package cn.hutool.core.lang.mutable;
 import cn.hutool.core.util.NumberUtil;
 
 /**
- * 可变 <code>double</code> 类型
- * 
+ * 可变 {@code double} 类型
+ *
  * @see Double
  * @since 3.0.1
  */
 public class MutableDouble extends Number implements Comparable<MutableDouble>, Mutable<Number> {
 	private static final long serialVersionUID = 1L;
-	
+
 	private double value;
 
 	/**
@@ -46,7 +46,7 @@ public class MutableDouble extends Number implements Comparable<MutableDouble>, 
 
 	@Override
 	public Double get() {
-		return Double.valueOf(this.value);
+		return this.value;
 	}
 
 	/**
@@ -104,7 +104,7 @@ public class MutableDouble extends Number implements Comparable<MutableDouble>, 
 
 	/**
 	 * 减去值
-	 * 
+	 *
 	 * @param operand 被减的值
 	 * @return this
 	 */
@@ -115,7 +115,7 @@ public class MutableDouble extends Number implements Comparable<MutableDouble>, 
 
 	/**
 	 * 减去值
-	 * 
+	 *
 	 * @param operand 被减的值，非空
 	 * @return this
 	 */
@@ -150,12 +150,12 @@ public class MutableDouble extends Number implements Comparable<MutableDouble>, 
 	 * 相等需同时满足如下条件：
 	 * <ol>
 	 * 	<li>非空</li>
-	 * 	<li>类型为 {@link MutableDouble}</li>
+	 * 	<li>类型为 {@code MutableDouble}</li>
 	 * 	<li>值相等</li>
 	 * </ol>
-	 * 
+	 *
 	 * @param obj 比对的对象
-	 * @return 相同返回<code>true</code>，否则 <code>false</code>
+	 * @return 相同返回<code>true</code>，否则 {@code false}
 	 */
 	@Override
 	public boolean equals(final Object obj) {
@@ -174,8 +174,8 @@ public class MutableDouble extends Number implements Comparable<MutableDouble>, 
 	// -----------------------------------------------------------------------
 	/**
 	 * 比较
-	 * 
-	 * @param other 其它 {@link MutableDouble} 对象
+	 *
+	 * @param other 其它 {@code MutableDouble} 对象
 	 * @return x==y返回0，x&lt;y返回-1，x&gt;y返回1
 	 */
 	@Override

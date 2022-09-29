@@ -81,9 +81,9 @@ public class Setting extends AbsSetting implements Map<String, String> {
 	 */
 	protected boolean isUseVariable;
 	/**
-	 * 设定文件的URL
+	 * 设定文件的资源
 	 */
-	protected URL settingUrl;
+	protected Resource resource;
 
 	private SettingLoader settingLoader;
 	private WatchMonitor watchMonitor;
@@ -187,10 +187,8 @@ public class Setting extends AbsSetting implements Map<String, String> {
 	 * @return 成功初始化与否
 	 */
 	public boolean init(Resource resource, Charset charset, boolean isUseVariable) {
-		if (resource == null) {
-			throw new NullPointerException("Null setting resource define!");
-		}
-		this.settingUrl = resource.getUrl();
+		Assert.notNull(resource, "Setting resource must be not null!");
+		this.resource = resource;
 		this.charset = charset;
 		this.isUseVariable = isUseVariable;
 
@@ -206,7 +204,7 @@ public class Setting extends AbsSetting implements Map<String, String> {
 		if (null == this.settingLoader) {
 			settingLoader = new SettingLoader(this.groupedMap, this.charset, this.isUseVariable);
 		}
-		return settingLoader.load(new UrlResource(this.settingUrl));
+		return settingLoader.load(this.resource);
 	}
 
 	/**
@@ -226,12 +224,12 @@ public class Setting extends AbsSetting implements Map<String, String> {
 	 */
 	public void autoLoad(boolean autoReload, Consumer<Boolean> callback) {
 		if (autoReload) {
-			Assert.notNull(this.settingUrl, "Setting URL is null !");
+			Assert.notNull(this.resource, "Setting resource must be not null !");
 			if (null != this.watchMonitor) {
 				// 先关闭之前的监听
 				this.watchMonitor.close();
 			}
-			this.watchMonitor = WatchUtil.createModify(this.settingUrl, new SimpleWatcher() {
+			this.watchMonitor = WatchUtil.createModify(resource.getUrl(), new SimpleWatcher() {
 				@Override
 				public void onModify(WatchEvent<?> event, Path currentPath) {
 					boolean success = load();
@@ -242,7 +240,7 @@ public class Setting extends AbsSetting implements Map<String, String> {
 				}
 			});
 			this.watchMonitor.start();
-			StaticLog.debug("Auto load for [{}] listenning...", this.settingUrl);
+			StaticLog.debug("Auto load for [{}] listenning...", this.resource.getUrl());
 		} else {
 			IoUtil.close(this.watchMonitor);
 			this.watchMonitor = null;
@@ -256,7 +254,7 @@ public class Setting extends AbsSetting implements Map<String, String> {
 	 * @since 5.4.3
 	 */
 	public URL getSettingUrl() {
-		return this.settingUrl;
+		return (null == this.resource) ? null : this.resource.getUrl();
 	}
 
 	/**
@@ -265,7 +263,8 @@ public class Setting extends AbsSetting implements Map<String, String> {
 	 * @return 获得设定文件的路径
 	 */
 	public String getSettingPath() {
-		return (null == this.settingUrl) ? null : this.settingUrl.getPath();
+		final URL settingUrl = getSettingUrl();
+		return (null == settingUrl) ? null : settingUrl.getPath();
 	}
 
 	/**
@@ -376,8 +375,9 @@ public class Setting extends AbsSetting implements Map<String, String> {
 	 * @since 5.4.3
 	 */
 	public void store() {
-		Assert.notNull(this.settingUrl, "Setting path must be not null !");
-		store(FileUtil.file(this.settingUrl));
+		final URL resourceUrl = getSettingUrl();
+		Assert.notNull(resourceUrl, "Setting path must be not null !");
+		store(FileUtil.file(resourceUrl));
 	}
 
 	/**
@@ -515,20 +515,6 @@ public class Setting extends AbsSetting implements Map<String, String> {
 	/**
 	 * 将键值对加入到对应分组中
 	 *
-	 * @param group 分组
-	 * @param key   键
-	 * @param value 值
-	 * @return 此key之前存在的值，如果没有返回null
-	 * @deprecated 此方法与getXXX参数顺序不一致容易造成问题，建议使用{@link #putByGroup(String, String, String)}
-	 */
-	@Deprecated
-	public String put(String group, String key, String value) {
-		return this.groupedMap.put(group, key, value);
-	}
-
-	/**
-	 * 将键值对加入到对应分组中
-	 *
 	 * @param key   键
 	 * @param group 分组
 	 * @param value 值
@@ -626,21 +612,6 @@ public class Setting extends AbsSetting implements Map<String, String> {
 	 */
 	public Setting set(String key, String value) {
 		this.put(key, value);
-		return this;
-	}
-
-	/**
-	 * 将键值对加入到对应分组中
-	 *
-	 * @param group 分组
-	 * @param key   键
-	 * @param value 值
-	 * @return 此key之前存在的值，如果没有返回null
-	 * @deprecated 此方法与getXXX参数顺序不一致容易引起，请使用{@link #setByGroup(String, String, String)}
-	 */
-	@Deprecated
-	public Setting set(String group, String key, String value) {
-		this.put(group, key, value);
 		return this;
 	}
 
@@ -780,7 +751,7 @@ public class Setting extends AbsSetting implements Map<String, String> {
 		result = prime * result + ((charset == null) ? 0 : charset.hashCode());
 		result = prime * result + groupedMap.hashCode();
 		result = prime * result + (isUseVariable ? 1231 : 1237);
-		result = prime * result + ((settingUrl == null) ? 0 : settingUrl.hashCode());
+		result = prime * result + ((this.resource == null) ? 0 : this.resource.hashCode());
 		return result;
 	}
 
@@ -809,10 +780,10 @@ public class Setting extends AbsSetting implements Map<String, String> {
 		if (isUseVariable != other.isUseVariable) {
 			return false;
 		}
-		if (settingUrl == null) {
-			return other.settingUrl == null;
+		if (this.resource == null) {
+			return other.resource == null;
 		} else {
-			return settingUrl.equals(other.settingUrl);
+			return resource.equals(other.resource);
 		}
 	}
 

@@ -1,11 +1,11 @@
 package cn.hutool.core.util;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.date.DateField;
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.exceptions.UtilException;
-import cn.hutool.core.lang.UUID;
 import cn.hutool.core.lang.WeightRandom;
 import cn.hutool.core.lang.WeightRandom.WeightObj;
 
@@ -93,8 +93,8 @@ public class RandomUtil {
 	 *
 	 * @param seed 随机数种子
 	 * @return {@link SecureRandom}
-	 * @since 5.5.2
 	 * @see #createSecureRandom(byte[])
+	 * @since 5.5.2
 	 */
 	public static SecureRandom getSecureRandom(byte[] seed) {
 		return createSecureRandom(seed);
@@ -119,10 +119,25 @@ public class RandomUtil {
 		} catch (NoSuchAlgorithmException e) {
 			throw new UtilException(e);
 		}
-		if(null != seed){
+		if (null != seed) {
 			random.setSeed(seed);
 		}
 		return random;
+	}
+
+	/**
+	 * 获取algorithms/providers中提供的强安全随机生成器<br>
+	 * 注意：此方法可能造成阻塞或性能问题
+	 *
+	 * @return {@link SecureRandom}
+	 * @since 5.7.12
+	 */
+	public static SecureRandom getSecureRandomStrong() {
+		try {
+			return SecureRandom.getInstanceStrong();
+		} catch (NoSuchAlgorithmException e) {
+			throw new UtilException(e);
+		}
 	}
 
 	/**
@@ -149,6 +164,16 @@ public class RandomUtil {
 	}
 
 	/**
+	 * 随机汉字（'\u4E00'-'\u9FFF'）
+	 *
+	 * @return 随机的汉字字符
+	 * @since 5.7.15
+	 */
+	public static char randomChinese() {
+		return (char) randomInt('\u4E00', '\u9FFF');
+	}
+
+	/**
 	 * 获得指定范围内的随机数
 	 *
 	 * @param min 最小数（包含）
@@ -163,6 +188,7 @@ public class RandomUtil {
 	 * 获得随机数int值
 	 *
 	 * @return 随机数
+	 * @see Random#nextInt()
 	 */
 	public static int randomInt() {
 		return getRandom().nextInt();
@@ -173,6 +199,7 @@ public class RandomUtil {
 	 *
 	 * @param limit 限制随机数的范围，不包括这个数
 	 * @return 随机数
+	 * @see Random#nextInt(int)
 	 */
 	public static int randomInt(int limit) {
 		return getRandom().nextInt(limit);
@@ -184,6 +211,7 @@ public class RandomUtil {
 	 * @param min 最小数（包含）
 	 * @param max 最大数（不包含）
 	 * @return 随机数
+	 * @see ThreadLocalRandom#nextLong(long, long)
 	 * @since 3.3.0
 	 */
 	public static long randomLong(long min, long max) {
@@ -194,6 +222,7 @@ public class RandomUtil {
 	 * 获得随机数
 	 *
 	 * @return 随机数
+	 * @see ThreadLocalRandom#nextLong()
 	 * @since 3.3.0
 	 */
 	public static long randomLong() {
@@ -205,6 +234,7 @@ public class RandomUtil {
 	 *
 	 * @param limit 限制随机数的范围，不包括这个数
 	 * @return 随机数
+	 * @see ThreadLocalRandom#nextLong(long)
 	 */
 	public static long randomLong(long limit) {
 		return getRandom().nextLong(limit);
@@ -216,6 +246,7 @@ public class RandomUtil {
 	 * @param min 最小数（包含）
 	 * @param max 最大数（不包含）
 	 * @return 随机数
+	 * @see ThreadLocalRandom#nextDouble(double, double)
 	 * @since 3.3.0
 	 */
 	public static double randomDouble(double min, double max) {
@@ -240,6 +271,7 @@ public class RandomUtil {
 	 * 获得随机数[0, 1)
 	 *
 	 * @return 随机数
+	 * @see ThreadLocalRandom#nextDouble()
 	 * @since 3.3.0
 	 */
 	public static double randomDouble() {
@@ -263,6 +295,7 @@ public class RandomUtil {
 	 *
 	 * @param limit 限制随机数的范围，不包括这个数
 	 * @return 随机数
+	 * @see ThreadLocalRandom#nextDouble(double)
 	 * @since 3.3.0
 	 */
 	public static double randomDouble(double limit) {
@@ -411,7 +444,7 @@ public class RandomUtil {
 	 */
 	public static <T> List<T> randomEleList(List<T> source, int count) {
 		if (count >= source.size()) {
-			return source;
+			return ListUtil.toList(source);
 		}
 		final int[] randomList = ArrayUtil.sub(randomInts(source.size()), 0, count);
 		List<T> result = new ArrayList<>();
@@ -483,15 +516,15 @@ public class RandomUtil {
 	}
 
 	/**
-	 * 获得一个随机的字符串（只包含数字和字符） 并排除指定字符串
+	 * 获得一个随机的字符串（只包含数字和小写字母） 并排除指定字符串
 	 *
 	 * @param length   字符串的长度
-	 * @param elemData 要排除的字符串
+	 * @param elemData 要排除的字符串,如：去重容易混淆的字符串，oO0、lL1、q9Q、pP，不区分大小写
 	 * @return 随机字符串
 	 */
 	public static String randomStringWithoutStr(int length, String elemData) {
 		String baseStr = BASE_CHAR_NUMBER;
-		baseStr = StrUtil.removeAll(baseStr, elemData.toCharArray());
+		baseStr = StrUtil.removeAll(baseStr, elemData.toLowerCase().toCharArray());
 		return randomString(baseStr, length);
 	}
 
@@ -516,11 +549,11 @@ public class RandomUtil {
 		if (StrUtil.isEmpty(baseString)) {
 			return StrUtil.EMPTY;
 		}
-		final StringBuilder sb = new StringBuilder(length);
-
 		if (length < 1) {
 			length = 1;
 		}
+
+		final StringBuilder sb = new StringBuilder(length);
 		int baseLength = baseString.length();
 		for (int i = 0; i < length; i++) {
 			int number = randomInt(baseLength);
@@ -595,29 +628,6 @@ public class RandomUtil {
 	 */
 	public static <T> WeightRandom<T> weightRandom(Iterable<WeightObj<T>> weightObjs) {
 		return new WeightRandom<>(weightObjs);
-	}
-
-	// ------------------------------------------------------------------- UUID
-
-	/**
-	 * @return 随机UUID
-	 * @deprecated 请使用{@link IdUtil#randomUUID()}
-	 */
-	@Deprecated
-	public static String randomUUID() {
-		return UUID.randomUUID().toString();
-	}
-
-	/**
-	 * 简化的UUID，去掉了横线
-	 *
-	 * @return 简化的UUID，去掉了横线
-	 * @since 3.2.2
-	 * @deprecated 请使用{@link IdUtil#simpleUUID()}
-	 */
-	@Deprecated
-	public static String simpleUUID() {
-		return UUID.randomUUID().toString(true);
 	}
 
 	/**

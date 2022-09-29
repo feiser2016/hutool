@@ -47,7 +47,7 @@ public class DfaTest {
 	}
 
 	/**
-	 * 贪婪匹配原则测试
+	 * 贪婪非密集匹配原则测试
 	 */
 	@Test
 	public void greedMatchTest() {
@@ -56,15 +56,15 @@ public class DfaTest {
 
 		// -----------------------------------------------------------------------------------------------------------------------------------
 		// 情况三：匹配到最长关键词，跳过已经匹配的关键词
-		// 匹配到【大】，由于到最长匹配，因此【大土豆】接着被匹配
-		// 由于【大土豆】被匹配，【土豆】被跳过，由于【刚出锅】被匹配，【出锅】被跳过
+		// 匹配到【大】，由于非密集匹配，因此从下一个字符开始查找，匹配到【土豆】接着被匹配
+		// 由于【刚出锅】被匹配，由于非密集匹配，【出锅】被跳过
 		List<String> matchAll = tree.matchAll(text, -1, false, true);
-		Assert.assertEquals(matchAll, CollUtil.newArrayList("大", "大土^豆", "刚出锅"));
+		Assert.assertEquals(matchAll, CollUtil.newArrayList("大", "土^豆", "刚出锅"));
 
 	}
 
 	/**
-	 * 密集匹配原则（最短匹配）和贪婪匹配原则测试
+	 * 密集匹配原则（最长匹配）和贪婪匹配原则测试
 	 */
 	@Test
 	public void densityAndGreedMatchTest() {
@@ -78,6 +78,29 @@ public class DfaTest {
 		List<String> matchAll = tree.matchAll(text, -1, true, true);
 		Assert.assertEquals(matchAll, CollUtil.newArrayList("大", "大土^豆", "土^豆", "刚出锅", "出锅"));
 
+	}
+
+	@Test
+	public void densityAndGreedMatchTest2(){
+		WordTree tree = new WordTree();
+		tree.addWord("赵");
+		tree.addWord("赵阿");
+		tree.addWord("赵阿三");
+
+		final List<FoundWord> result = tree.matchAllWords("赵阿三在做什么", -1, true, true);
+		Assert.assertEquals(3, result.size());
+
+		Assert.assertEquals("赵", result.get(0).getWord());
+		Assert.assertEquals(0, result.get(0).getStartIndex().intValue());
+		Assert.assertEquals(0, result.get(0).getEndIndex().intValue());
+
+		Assert.assertEquals("赵阿", result.get(1).getWord());
+		Assert.assertEquals(0, result.get(1).getStartIndex().intValue());
+		Assert.assertEquals(1, result.get(1).getEndIndex().intValue());
+
+		Assert.assertEquals("赵阿三", result.get(2).getWord());
+		Assert.assertEquals(0, result.get(2).getStartIndex().intValue());
+		Assert.assertEquals(2, result.get(2).getEndIndex().intValue());
 	}
 
 	/**
@@ -99,6 +122,30 @@ public class DfaTest {
 		String text = "a WOMEN todo.".toLowerCase();
 		List<String> matchAll = tree.matchAll(text, -1, false, false);
 		Assert.assertEquals("[women]", matchAll.toString());
+	}
+
+	@Test
+	public void clearTest(){
+		WordTree tree = new WordTree();
+		tree.addWord("黑");
+		Assert.assertTrue(tree.matchAll("黑大衣").contains("黑"));
+		//clear时直接调用Map的clear并没有把endCharacterSet清理掉
+		tree.clear();
+		tree.addWords("黑大衣","红色大衣");
+
+		//clear() 覆写前 这里想匹配到黑大衣，但是却匹配到了黑
+//		Assert.assertFalse(tree.matchAll("黑大衣").contains("黑大衣"));
+//		Assert.assertTrue(tree.matchAll("黑大衣").contains("黑"));
+		//clear() 覆写后
+		Assert.assertTrue(tree.matchAll("黑大衣").contains("黑大衣"));
+		Assert.assertFalse(tree.matchAll("黑大衣").contains("黑"));
+		Assert.assertTrue(tree.matchAll("红色大衣").contains("红色大衣"));
+
+		//如果不覆写只能通过new出新对象才不会有问题
+		tree = new WordTree();
+		tree.addWords("黑大衣","红色大衣");
+		Assert.assertTrue(tree.matchAll("黑大衣").contains("黑大衣"));
+		Assert.assertTrue(tree.matchAll("红色大衣").contains("红色大衣"));
 	}
 
 	// ----------------------------------------------------------------------------------------------------------

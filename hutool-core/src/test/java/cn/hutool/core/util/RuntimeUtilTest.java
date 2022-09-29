@@ -27,7 +27,27 @@ public class RuntimeUtilTest {
 	}
 
 	@Test
+	@Ignore
+	public void execCmdTest2() {
+		String str = RuntimeUtil.execForStr("cmd /c", "cd \"C:\\Program Files (x86)\"", "chdir");
+		Console.log(str);
+	}
+
+	@Test
 	public void getUsableMemoryTest(){
 		Assert.assertTrue(RuntimeUtil.getUsableMemory() > 0);
+	}
+
+	@Test
+	public void getPidTest(){
+		int pid = RuntimeUtil.getPid();
+		Assert.assertTrue(pid > 0);
+	}
+
+	@Test
+	public void getProcessorCountTest(){
+		int cpu = RuntimeUtil.getProcessorCount();
+		Console.log("cpu个数：{}", cpu);
+		Assert.assertTrue(cpu > 0);
 	}
 }
